@@ -231,6 +231,7 @@ $('btn-map-back').onclick = () => showTitle();
 
 // ---------- Playing ----------
 let playing = 0;
+let winShownAt = 0;
 const game = new Game($('game'), {
   onHearts(n) {
     $('hearts').textContent = '❤️'.repeat(Math.max(0, n)) + '🤍'.repeat(Math.max(0, MAX_HEARTS - n));
@@ -248,6 +249,7 @@ const game = new Game($('game'), {
     $('btn-next').classList.toggle('hidden', playing >= TOTAL_LEVELS - 1);
     $('win-box').classList.remove('hidden');
     $('controls').classList.add('hidden');
+    winShownAt = performance.now();
   },
 });
 
@@ -277,6 +279,16 @@ $('btn-restart').onclick = () => playLevel(playing);
 $('btn-to-map').onclick = () => openMap(Math.floor(playing / LEVELS_PER_WORLD));
 $('btn-next').onclick = () => playLevel(Math.min(TOTAL_LEVELS - 1, playing + 1));
 $('btn-win-map').onclick = () => openMap(Math.floor(Math.min(TOTAL_LEVELS - 1, playing + 1) / LEVELS_PER_WORLD));
+// On a computer, Enter or Space on the gem screen goes on to the next level.
+// Ignore held keys and quick presses so a jump that grabbed the gem doesn't skip it.
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (current !== 'play' || $('win-box').classList.contains('hidden')) return;
+  e.preventDefault();
+  if (e.repeat || performance.now() - winShownAt < 400) return;
+  const next = $('btn-next');
+  (next.classList.contains('hidden') ? $('btn-win-map') : next).click();
+});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && current === 'play' && !game.finished) $('btn-pause').onclick();
 });
