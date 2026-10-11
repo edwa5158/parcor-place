@@ -144,7 +144,7 @@ export class Cutscene {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const speaking = loading || t > (line.t + 0.05) ? line.who : null;
     // Moods for the wizard's face: the line he's saying, or his last one.
-    const wiz = p.lines.filter(l => l.who === 'wizard');
+    const wiz = p.wizLines || (p.wizLines = p.lines.filter(l => l.who === 'wizard'));
     let mood = (wiz[0] && wiz[0].mood) || 'grumpy';
     for (const l of wiz) if (l.t <= t && l.mood) mood = l.mood;
     const st = {
@@ -171,9 +171,17 @@ export function sayLost() {
 // The ground line: a bit above the caption box
 const ground = (st, k) => Math.min(st.h * k, st.floor - st.s * 0.1);
 
+// Sky gradients are made once for each pair of colors (and screen height)
+const skies = new Map();
 function skyFill(ctx, w, h, top, bottom) {
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, top); g.addColorStop(1, bottom);
+  const key = `${top}${bottom}${h}`;
+  let g = skies.get(key);
+  if (!g) {
+    g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, top); g.addColorStop(1, bottom);
+    if (skies.size > 20) skies.clear();
+    skies.set(key, g);
+  }
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 }

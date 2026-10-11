@@ -1,9 +1,9 @@
 // Playing a level: hearts, checkpoints, the camera, and drawing everything.
 
-import { P, DT, createPlayer, step, inTunnel, isSolid } from './physics.js';
+import { P, DT, createPlayer, step, inTunnel, isSolid, slopeTop } from './physics.js';
 import { getLevel } from './levels.js';
 import { drawDragon } from './dragon.js';
-import { drawBackground, drawTiles, drawHints, drawGem } from './render.js';
+import { drawBackground, drawHints, drawGem, TileCache } from './render.js';
 import { input } from './input.js';
 import { sfx } from './audio.js';
 
@@ -13,8 +13,11 @@ export class Game {
   // hooks: { onHearts(n), onGem(), onLevelLost() }
   constructor(canvas, hooks) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    // The game always paints the whole screen, so the canvas doesn't need to be see-through.
+    // That saves the browser some work every frame.
+    this.ctx = canvas.getContext('2d', { alpha: false });
     this.hooks = hooks;
+    this.tiles = new TileCache();
     this.running = false;
     this.paused = false;
     this.particles = [];
@@ -31,8 +34,10 @@ export class Game {
     this.canvas.height = Math.round(h * dpr);
     this.dpr = dpr;
     this.w = w; this.h = h;
-    // Show about 11 tiles tall (or 15 wide on a tall, narrow screen).
-    this.s = Math.max(24, Math.floor(Math.min(h / 11, w / 15)));
+    // Show about 11 tiles tall (or 15 wide on a tall, narrow screen). S is a tile in real
+    // screen pixels, a whole number so the cached tiles line up exactly; s is the same in CSS pixels.
+    this.S = Math.max(Math.round(24 * dpr), Math.floor(Math.min(h / 11, w / 15) * dpr));
+    this.s = this.S / dpr;
   }
 
   start(index, dragon) {
@@ -41,7 +46,8 @@ export class Game {
     this.dragon = dragon;
     this.hearts = MAX_HEARTS;
     this.checkpoint = { ...this.level.start };
-    this.state = { checkpoints: new Set(), springSquash: {}, gemTaken: false };
+    // Checkpoints and springs are keyed by tile number (y * width + x)
+    this.state = { checkpoints: new Set(), springSquash: new Map(), gemTaken: false };
     this.particles = [];
     this.respawn(true);
     this.camX = this.targetCamX();
@@ -65,6 +71,7 @@ export class Game {
   stop() {
     this.running = false;
     cancelAnimationFrame(this.raf);
+    this.tiles.clear(); // give the memory back while we're not playing
   }
 
   respawn(fresh) {
@@ -123,10 +130,12 @@ export class Game {
   }
 
   update() {
-    this.prev = { x: this.player.x, y: this.player.y, camX: this.camX, camY: this.camY };
+    const pv = this.prev || (this.prev = {});
+    pv.x = this.player.x; pv.y = this.player.y; pv.camX = this.camX; pv.camY = this.camY;
     this.updateParticles();
-    for (const k in this.state.springSquash) {
-      this.state.springSquash[k] = Math.max(0, this.state.springSquash[k] - DT * 4);
+    for (const [k, v] of this.state.springSquash) {
+      if (v <= DT * 4) this.state.springSquash.delete(k);
+      else this.state.springSquash.set(k, v - DT * 4);
     }
     if (this.freeze > 0) {
       this.freeze -= DT;
@@ -158,7 +167,7 @@ export class Game {
       else if (e === 'spring') {
         sfx.spring();
         this.squash = -1;
-        for (const key of this.springKeysNear(p)) this.state.springSquash[key] = 1;
+        for (const key of this.springKeysNear(p)) this.state.springSquash.set(key, 1);
       }
       else if (e === 'land') {
         this.puff(p.x, p.y, 3);
@@ -170,7 +179,7 @@ export class Game {
       else if (e === 'hazard') { if (this.invincible <= 0) { this.ouch(); return; } }
       else if (e === 'gem') { this.collectGem(); return; }
       else if (Array.isArray(e) && e[0] === 'checkpoint') {
-        const key = `${e[1]},${e[2]}`;
+        const key = e[2] * this.level.W + e[1];
         if (!this.state.checkpoints.has(key)) {
           this.state.checkpoints.add(key);
           this.checkpoint = { x: e[1] + 0.5, y: e[2] + 1 };
@@ -190,7 +199,7 @@ export class Game {
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const tx = Math.floor(p.x) + dx, ty = Math.floor(p.y) + dy;
-        if (this.level.grid[ty] && this.level.grid[ty][tx] === 'B') keys.push(`${tx},${ty}`);
+        if (this.level.grid[ty] && this.level.grid[ty][tx] === 'B') keys.push(ty * this.level.W + tx);
       }
     }
     return keys;
@@ -274,33 +283,38 @@ export class Game {
   // How far below the dragon the ground is (for its shadow), or -1 if there's none close.
   groundBelow(x, y) {
     for (let ty = Math.floor(y); ty < Math.min(this.level.H, y + 6); ty++) {
+      const sy = slopeTop(this.level, x, ty);
+      if (sy >= y - 0.01) return sy;
       if (isSolid(this.level, Math.floor(x), ty)) return ty;
     }
     return -1;
   }
 
   draw(alpha = 1) {
-    const { ctx, s, w, h } = this;
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const pv = this.prev || { x: this.player.x, y: this.player.y, camX: this.camX, camY: this.camY };
+    const { ctx, s, S, w, h, dpr } = this;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const p = this.player;
+    const pv = this.prev || { x: p.x, y: p.y, camX: this.camX, camY: this.camY };
     const lerp = (a, b) => a + (b - a) * alpha;
     // Line the camera up with real screen pixels so the tiles don't shimmer
-    const px = Math.round(lerp(pv.camX, this.camX) * s * this.dpr) / (s * this.dpr);
-    const py = Math.round(lerp(pv.camY, this.camY) * s * this.dpr) / (s * this.dpr);
+    const px = Math.round(lerp(pv.camX, this.camX) * S) / S;
+    const py = Math.round(lerp(pv.camY, this.camY) * S) / S;
     let shakeX = 0, shakeY = 0;
     if (this.shake > 0) {
       this.shake -= 1 / 60;
-      shakeX = Math.round((Math.random() - 0.5) * 10); shakeY = Math.round((Math.random() - 0.5) * 10);
+      shakeX = Math.round((Math.random() - 0.5) * 10 * dpr); shakeY = Math.round((Math.random() - 0.5) * 10 * dpr);
     }
     drawBackground(ctx, this.level.theme, w, h, px * s, this.time);
-    ctx.save();
-    ctx.translate(shakeX, shakeY);
     const vw = w / s, vh = h / s;
-    drawTiles(ctx, this.level, px, py, s, vw, vh, this.time, this.state);
-    drawHints(ctx, this.level, px, py, s);
+    // The ground and obstacles come from the tile cache, in real screen pixels
+    this.tiles.use(this.level, S);
+    ctx.setTransform(1, 0, 0, 1, shakeX, shakeY);
+    this.tiles.drawStatic(ctx, px, py, vw, vh);
+    ctx.setTransform(dpr, 0, 0, dpr, shakeX / dpr, shakeY / dpr);
+    this.tiles.drawMoving(ctx, px, py, s, vw, vh, this.time, this.state);
+    drawHints(ctx, this.level, px, py, s, vw);
 
     // Dragon
-    const p = this.player;
     const dx = lerp(pv.x, p.x), dy = lerp(pv.y, p.y);
     const blinkOut = this.invincible > 0 && Math.floor(this.invincible * 10) % 2 === 0;
     const hidden = this.freeze > 0 && !this.finished;
@@ -327,7 +341,6 @@ export class Game {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
-    ctx.restore();
   }
 }
 
@@ -398,9 +411,12 @@ export class FlyScene {
   draw() {
     const { ctx, w, h, s } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, '#4fc3f7'); g.addColorStop(1, '#e1f5fe');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    if (!this.sky || this.skyH !== h) {
+      this.sky = ctx.createLinearGradient(0, 0, 0, h);
+      this.sky.addColorStop(0, '#4fc3f7'); this.sky.addColorStop(1, '#e1f5fe');
+      this.skyH = h;
+    }
+    ctx.fillStyle = this.sky; ctx.fillRect(0, 0, w, h);
     // Rainbow
     ['#ff5252', '#ffab40', '#ffee58', '#69f0ae', '#40c4ff', '#b388ff'].forEach((c, k) => {
       ctx.strokeStyle = c; ctx.globalAlpha = 0.45; ctx.lineWidth = s * 0.25;

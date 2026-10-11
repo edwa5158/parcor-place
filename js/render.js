@@ -38,15 +38,23 @@ const BACKGROUNDS = {
       ctx.fillStyle = '#d98a6a';
       ctx.fillRect(x, h - bh, 100, bh);
     });
+    // All the buildings in one shape, then all the lit windows in one shape
+    ctx.fillStyle = '#b06a55';
+    ctx.beginPath();
     layer(ctx, w, h, camX, 0.3, 110, (x, i, r) => {
       const bh = h * (0.22 + r * 0.22);
-      ctx.fillStyle = '#b06a55';
-      ctx.fillRect(x, h - bh, 85, bh);
-      ctx.fillStyle = '#ffe9a8';
+      ctx.rect(x, h - bh, 85, bh);
+    });
+    ctx.fill();
+    ctx.fillStyle = '#ffe9a8';
+    ctx.beginPath();
+    layer(ctx, w, h, camX, 0.3, 110, (x, i, r) => {
+      const bh = h * (0.22 + r * 0.22);
       for (let wy = h - bh + 15; wy < h - 20; wy += 28)
         for (let wx = x + 12; wx < x + 75; wx += 22)
-          if (hash(wx * 3 + wy) > 0.45) ctx.fillRect(wx, wy, 10, 14);
+          if (hash(wx * 3 + wy) > 0.45) ctx.rect(wx, wy, 10, 14);
     });
+    ctx.fill();
   },
   trees(ctx, w, h, camX) {
     layer(ctx, w, h, camX, 0.15, 120, (x, i, r) => {
@@ -105,12 +113,14 @@ const BACKGROUNDS = {
     });
     // Embers floating up
     ctx.fillStyle = '#ffb74d';
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
     for (let k = 0; k < 25; k++) {
       const ex = ((hash(k) * w * 1.5 - camX * 0.4) % w + w) % w;
       const ey = h - ((t * (20 + hash(k + 9) * 30) + hash(k + 3) * h) % h);
-      ctx.globalAlpha = 0.7;
-      ctx.fillRect(ex, ey, 3, 3);
+      ctx.rect(ex, ey, 3, 3);
     }
+    ctx.fill();
     ctx.globalAlpha = 1;
   },
   ice(ctx, w, h, camX, t) {
@@ -123,11 +133,15 @@ const BACKGROUNDS = {
       ctx.lineTo(x + 165, h - mh + 55); ctx.lineTo(x + 210, h - mh + 50); ctx.fill();
     });
     ctx.fillStyle = '#fff';
+    ctx.beginPath();
     for (let k = 0; k < 40; k++) {
       const sx = ((hash(k) * w * 2 - camX * 0.5 + Math.sin(t + k) * 15) % w + w) % w;
       const sy = (t * (25 + hash(k + 5) * 25) + hash(k + 2) * h) % h;
-      ctx.beginPath(); ctx.arc(sx, sy, 2 + hash(k + 7) * 2, 0, TAU); ctx.fill();
+      const r = 2 + hash(k + 7) * 2;
+      ctx.moveTo(sx + r, sy);
+      ctx.arc(sx, sy, r, 0, TAU);
     }
+    ctx.fill();
   },
   crystals(ctx, w, h, camX, t) {
     layer(ctx, w, h, camX, 0.2, 150, (x, i, r) => {
@@ -989,15 +1003,31 @@ function flagTile(ctx, px, py, s, active, t) {
   }
 }
 
+// The gem's glow is the same picture every frame, so its gradient is made once per size
+// (around 0, 0) and moved into place.
+const glows = new Map();
+function gemGlow(ctx, s) {
+  const key = Math.round(s * 4);
+  let g = glows.get(key);
+  if (!g || g.ctx !== ctx) {
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.9);
+    grad.addColorStop(0, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(0.4, 'rgba(255,80,220,0.35)');
+    grad.addColorStop(1, 'rgba(255,80,220,0)');
+    g = { ctx, grad };
+    if (glows.size > 16) glows.delete(glows.keys().next().value);
+    glows.set(key, g);
+  }
+  return g.grad;
+}
+
 export function drawGem(ctx, cx, cy, s, t) {
   const bob = Math.sin(t * 3) * s * 0.08;
   cy += bob;
-  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 0.9);
-  glow.addColorStop(0, 'rgba(255,255,255,0.8)');
-  glow.addColorStop(0.4, 'rgba(255,80,220,0.35)');
-  glow.addColorStop(1, 'rgba(255,80,220,0)');
-  ctx.fillStyle = glow;
-  ctx.beginPath(); ctx.arc(cx, cy, s * 0.9, 0, TAU); ctx.fill();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = gemGlow(ctx, s);
+  ctx.beginPath(); ctx.arc(0, 0, s * 0.9, 0, TAU); ctx.fill();
+  ctx.translate(-cx, -cy);
   const r = s * 0.38;
   ctx.fillStyle = '#e040fb';
   ctx.strokeStyle = '#6a1b9a';
@@ -1032,12 +1062,35 @@ function drawStaticTile(ctx, level, c, tx, ty, px, py, s) {
   return true;
 }
 
-// Draws all visible tiles. `state` has which checkpoints are active and spring squish.
-// camX and camY should already be lined up with the screen's pixels.
+// Tiles that move (lava, springs, flags, the gem, saws) are drawn fresh every frame.
+// Everything else is drawn once into the tile cache.
+function moves(theme, c) {
+  return c === '~' || c === 'B' || c === 'C' || c === 'G' || (c === '^' && theme.look.spikes === 'saws');
+}
+
+function drawMovingTile(ctx, level, c, tx, ty, px, py, s, t, state, later) {
+  const theme = level.theme, key = ty * level.W + tx;
+  if (c === '^') sawTile(ctx, px, py, s, t, tx);
+  else if (c === '~') liquidTile(ctx, theme, px, py, s, t, tx);
+  else if (c === 'B') springTile(ctx, theme, px, py, s, state.springSquash.get(key) || 0);
+  else if (c === 'C') later.push(px, py, state.checkpoints.has(key) ? 1 : 0);
+  else if (c === 'G' && !state.gemTaken) later.push(px, py, -1);
+}
+
+// Flags and the gem go on top of everything else. `later` is a flat list: x, y, kind (-1 gem, 0/1 flag).
+function drawLater(ctx, later, s, t) {
+  for (let i = 0; i < later.length; i += 3) {
+    const px = later[i], py = later[i + 1], k = later[i + 2];
+    if (k < 0) drawGem(ctx, px + s / 2, py + s / 2, s, t);
+    else flagTile(ctx, px, py, s, k === 1, t);
+  }
+}
+
+// Draws all visible tiles directly (no cache). Used for the little scenery in cutscenes.
+// `state` has which checkpoints are active and spring squish. camX and camY are in tiles.
 export function drawTiles(ctx, level, camX, camY, s, vw, vh, t, state) {
   const x0 = Math.max(0, Math.floor(camX) - 1), x1 = Math.min(level.W - 1, Math.ceil(camX + vw) + 1);
   const y0 = Math.max(0, Math.floor(camY) - 1), y1 = Math.min(level.H - 1, Math.ceil(camY + vh) + 1);
-  const theme = level.theme;
   const later = [];
   for (let ty = y0; ty <= y1; ty++) {
     const row = level.grid[ty];
@@ -1045,24 +1098,142 @@ export function drawTiles(ctx, level, camX, camY, s, vw, vh, t, state) {
       const c = row[tx];
       if (c === '.') continue;
       const px = tx * s - camX * s, py = ty * s - camY * s;
-      if (drawStaticTile(ctx, level, c, tx, ty, px, py, s)) continue;
-      if (c === '^') sawTile(ctx, px, py, s, t, tx);
-      else if (c === '~') liquidTile(ctx, theme, px, py, s, t, tx);
-      else if (c === 'B') springTile(ctx, theme, px, py, s, state.springSquash[`${tx},${ty}`] || 0);
-      else if (c === 'C') later.push(() => flagTile(ctx, px, py, s, state.checkpoints.has(`${tx},${ty}`), t));
-      else if (c === 'G' && !state.gemTaken) later.push(() => drawGem(ctx, px + s / 2, py + s / 2, s, t));
+      if (moves(level.theme, c)) drawMovingTile(ctx, level, c, tx, ty, px, py, s, t, state, later);
+      else drawStaticTile(ctx, level, c, tx, ty, px, py, s);
     }
   }
-  for (const f of later) f();
+  drawLater(ctx, later, s, t);
 }
 
-export function drawHints(ctx, level, camX, camY, s) {
+// ---------- Tile cache ----------
+// The ground and obstacles never move, so they're drawn once into little canvases
+// ("chunks" of 8 x 6 tiles) and copied onto the screen each frame. That's a handful of
+// image copies a frame instead of a hundred or so tiles, each with its own shapes.
+// Chunks are made when they first scroll into view; the least recently used are thrown
+// away so the iPad doesn't run out of memory. Tiles that move are kept in a list sorted
+// by column, so finding the ones on screen is a quick binary search.
+const CHUNK_W = 8, CHUNK_H = 6, MAX_CHUNKS = 12;
+
+export class TileCache {
+  constructor() {
+    this.level = null;
+    this.S = 0;
+    this.chunks = new Map(); // key -> canvas (or null if there's nothing in it). Oldest first.
+    this.later = [];
+  }
+
+  // S is the tile size in real screen pixels. It's a whole number, so chunks line up exactly.
+  use(level, S) {
+    if (this.level === level && this.S === S) return;
+    this.clear();
+    this.level = level;
+    this.S = S;
+    this.moving = [];
+    for (let tx = 0; tx < level.W; tx++) {
+      for (let ty = 0; ty < level.H; ty++) {
+        const c = level.grid[ty][tx];
+        if (moves(level.theme, c)) this.moving.push({ tx, ty, c });
+      }
+    }
+  }
+
+  clear() {
+    // Shrinking a canvas frees its memory right away on iPads
+    for (const c of this.chunks.values()) if (c) c.width = c.height = 0;
+    this.chunks.clear();
+  }
+
+  chunk(cx, cy) {
+    const key = cy * 65536 + cx;
+    let c = this.chunks.get(key);
+    if (c !== undefined) {
+      this.chunks.delete(key); // move to the back: most recently used
+      this.chunks.set(key, c);
+      return c;
+    }
+    c = this.build(cx, cy);
+    this.chunks.set(key, c);
+    if (this.chunks.size > MAX_CHUNKS) {
+      const [oldKey, old] = this.chunks.entries().next().value;
+      if (old) old.width = old.height = 0;
+      this.chunks.delete(oldKey);
+    }
+    return c;
+  }
+
+  build(cx, cy) {
+    const { level, S } = this;
+    const theme = level.theme;
+    const tx0 = cx * CHUNK_W, ty0 = cy * CHUNK_H;
+    // Some tiles poke a little past their edges (bush tops, cloud puffs), so the
+    // tiles just outside the chunk are drawn too, and get cut off at its edge.
+    const xa = Math.max(0, tx0 - 1), xb = Math.min(level.W - 1, tx0 + CHUNK_W);
+    const ya = Math.max(0, ty0 - 1), yb = Math.min(level.H - 1, ty0 + CHUNK_H);
+    let any = false;
+    for (let ty = ya; ty <= yb && !any; ty++) {
+      const row = level.grid[ty];
+      for (let tx = xa; tx <= xb; tx++) if (row[tx] !== '.' && !moves(theme, row[tx])) { any = true; break; }
+    }
+    if (!any) return null;
+    const c = document.createElement('canvas');
+    c.width = CHUNK_W * S;
+    c.height = CHUNK_H * S;
+    const ctx = c.getContext('2d');
+    ctx.translate(-tx0 * S, -ty0 * S);
+    for (let ty = ya; ty <= yb; ty++) {
+      const row = level.grid[ty];
+      for (let tx = xa; tx <= xb; tx++) {
+        const ch = row[tx];
+        if (ch !== '.' && !moves(theme, ch)) drawStaticTile(ctx, level, ch, tx, ty, tx * S, ty * S, S);
+      }
+    }
+    return c;
+  }
+
+  // Copies the chunks onto the screen. ctx should be in real screen pixels (no scaling),
+  // and camX/camY lined up with them.
+  drawStatic(ctx, camX, camY, vw, vh) {
+    const { S } = this;
+    const cx0 = Math.max(0, Math.floor(camX / CHUNK_W)), cx1 = Math.floor((camX + vw) / CHUNK_W);
+    const cy0 = Math.max(0, Math.floor(camY / CHUNK_H)), cy1 = Math.floor((camY + vh) / CHUNK_H);
+    const ox = Math.round(camX * S), oy = Math.round(camY * S);
+    for (let cy = cy0; cy <= cy1; cy++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const c = this.chunk(cx, cy);
+        if (c) ctx.drawImage(c, cx * CHUNK_W * S - ox, cy * CHUNK_H * S - oy);
+      }
+    }
+  }
+
+  // Draws the tiles that move. ctx is in CSS pixels; s is the tile size in CSS pixels.
+  drawMoving(ctx, camX, camY, s, vw, vh, t, state) {
+    const list = this.moving, level = this.level;
+    // First tile at or right of the left edge of the screen
+    let lo = 0, hi = list.length;
+    const left = Math.floor(camX) - 1, right = Math.ceil(camX + vw) + 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (list[mid].tx < left) lo = mid + 1; else hi = mid; }
+    const later = this.later;
+    later.length = 0;
+    for (let i = lo; i < list.length && list[i].tx <= right; i++) {
+      const { tx, ty, c } = list[i];
+      if (ty < camY - 2 || ty > camY + vh + 1) continue;
+      drawMovingTile(ctx, level, c, tx, ty, (tx - camX) * s, (ty - camY) * s, s, t, state, later);
+    }
+    drawLater(ctx, later, s, t);
+  }
+}
+
+export function drawHints(ctx, level, camX, camY, s, vw = Infinity) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `bold ${Math.round(s * 0.42)}px "Trebuchet MS", sans-serif`;
+  const font = `bold ${Math.round(s * 0.42)}px "Trebuchet MS", sans-serif`;
+  ctx.font = font;
   for (const h of level.hints) {
+    // Measuring text is slow, so remember how wide each hint is for this text size
+    if (h.font !== font) { h.font = font; h.w = ctx.measureText(h.text).width + s * 0.6; }
+    const w = h.w;
     const px = (h.x + 0.5 - camX) * s, py = (h.y + 0.5 - camY) * s;
-    const w = ctx.measureText(h.text).width + s * 0.6;
+    if (px + w / 2 < 0 || px - w / 2 > vw * s) continue;
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.beginPath(); ctx.roundRect(px - w / 2, py - s * 0.4, w, s * 0.8, s * 0.3); ctx.fill();
     ctx.fillStyle = '#4a2c82';

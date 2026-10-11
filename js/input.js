@@ -12,13 +12,16 @@ function buttonAt(x, y) {
   return btn ? btn.dataset.btn : null;
 }
 
+const buttons = {}; // the on-screen button for each name, found once
 function refresh() {
   const held = { left: false, right: false, jump: false };
   for (const b of fingers.values()) if (b) held[b] = true;
   for (const k of ['left', 'right', 'jump']) {
-    input[k] = held[k] || keys[k];
-    const el = document.querySelector(`[data-btn="${k}"]`);
-    if (el) el.classList.toggle('down', held[k] || keys[k]);
+    const down = held[k] || keys[k];
+    if (input[k] === down) continue; // nothing changed
+    input[k] = down;
+    const el = buttons[k] || (buttons[k] = document.querySelector(`[data-btn="${k}"]`));
+    if (el) el.classList.toggle('down', down);
   }
 }
 

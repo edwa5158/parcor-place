@@ -51,12 +51,13 @@ function drawPreview(c, cfg, t, opts = {}) {
 }
 
 function previewLoop(now) {
+  requestAnimationFrame(previewLoop);
+  if (current !== 'title' && current !== 'maker') return; // nothing to animate while playing
   const t = now / 1000;
   for (const [c, get] of previews) {
     if (!c.closest('.screen.active')) continue;
     drawPreview(c, get(), t);
   }
-  requestAnimationFrame(previewLoop);
 }
 requestAnimationFrame(previewLoop);
 

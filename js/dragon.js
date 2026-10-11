@@ -56,7 +56,18 @@ export function randomName() {
   return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
 }
 
+// Colors get lighter or darker many times every frame, always the same few,
+// so remember each answer instead of working it out again.
+const shades = new Map(); // hex -> Map(amt -> hex)
 export function shade(hex, amt) {
+  let byAmt = shades.get(hex);
+  if (!byAmt) shades.set(hex, (byAmt = new Map()));
+  let out = byAmt.get(amt);
+  if (out === undefined) byAmt.set(amt, (out = shadeNow(hex, amt)));
+  return out;
+}
+
+function shadeNow(hex, amt) {
   const n = parseInt(hex.slice(1), 16);
   let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
   const f = c => Math.max(0, Math.min(255, Math.round(amt > 0 ? c + (255 - c) * amt : c * (1 + amt))));
