@@ -1,0 +1,14 @@
+{
+  "name": "Parcor Place",
+  "short_name": "Parcor Place",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#2b1a52",
+  "theme_color": "#4a2c82",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

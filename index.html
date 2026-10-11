@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Parcor Place">
+  <meta name="theme-color" content="#4a2c82">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>Parcor Place</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Title -->
+  <section id="title" class="screen">
+    <h1 class="logo">Parcor Place</h1>
+    <p class="tagline">Break the spell! 🪄</p>
+    <canvas id="title-dragon" class="dragon-preview"></canvas>
+    <p class="gem-total" id="title-gems"></p>
+    <div class="menu">
+      <button class="big-btn green" id="btn-play">▶ Play</button>
+      <button class="big-btn purple" id="btn-dragon">🎨 My Dragon</button>
+      <button class="big-btn gold hidden" id="btn-fly">🪽 Fly!</button>
+    </div>
+    <button class="corner-btn" id="btn-mute" aria-label="Sound on or off">🔊</button>
+  </section>
+
+  <!-- Dragon maker -->
+  <section id="maker" class="screen">
+    <div class="maker-left">
+      <canvas id="maker-dragon" class="dragon-preview"></canvas>
+      <div class="name-row">
+        <input id="dragon-name" maxlength="14" placeholder="Dragon name" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="small-btn" id="btn-random-name" aria-label="Random name">🎲</button>
+      </div>
+      <button class="big-btn green" id="btn-maker-done">✔ Done!</button>
+    </div>
+    <div class="maker-right" id="maker-options"></div>
+  </section>
+
+  <!-- Story -->
+  <section id="story" class="screen">
+    <canvas id="story-dragon" class="dragon-preview"></canvas>
+    <div class="story-text" id="story-text"></div>
+    <button class="big-btn green" id="btn-story-go">Let's go! ▶</button>
+  </section>
+
+  <!-- Level map -->
+  <section id="map" class="screen">
+    <div class="map-top">
+      <button class="small-btn" id="btn-map-back" aria-label="Back">🏠</button>
+      <div class="gem-total" id="map-gems"></div>
+    </div>
+    <div class="map-body">
+      <div class="world-list" id="world-list"></div>
+      <div class="world-panel">
+        <h2 id="world-title"></h2>
+        <div class="level-grid" id="level-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Playing -->
+  <section id="play" class="screen">
+    <canvas id="game"></canvas>
+    <div class="hud">
+      <div class="hearts" id="hearts"></div>
+      <div class="level-name" id="level-name"></div>
+      <div class="hud-right">
+        <span class="gem-total" id="play-gems"></span>
+        <button class="small-btn" id="btn-pause" aria-label="Pause">⏸</button>
+      </div>
+    </div>
+    <div class="overlay hidden" id="pause-box">
+      <div class="panel">
+        <h2>Paused</h2>
+        <button class="big-btn green" id="btn-resume">▶ Keep going</button>
+        <button class="big-btn purple" id="btn-restart">🔄 Start over</button>
+        <button class="big-btn blue" id="btn-to-map">🗺️ Levels</button>
+      </div>
+    </div>
+    <div class="overlay hidden" id="win-box">
+      <div class="panel">
+        <h2>You got a magic gem! 💎</h2>
+        <p class="gem-total big" id="win-gems"></p>
+        <button class="big-btn green" id="btn-next">Next level ▶</button>
+        <button class="big-btn blue" id="btn-win-map">🗺️ Levels</button>
+      </div>
+    </div>
+    <div class="overlay hidden pass-through" id="lost-box">
+      <div class="panel small">
+        <h2>Oh no! Try again! 💪</h2>
+      </div>
+    </div>
+  </section>
+
+  <!-- The ending -->
+  <section id="ending" class="screen">
+    <canvas id="fly"></canvas>
+    <div class="ending-banner" id="ending-text"></div>
+    <button class="corner-btn" id="btn-ending-home" aria-label="Home">🏠</button>
+  </section>
+
+  <!-- Touch buttons (shown while playing) -->
+  <div id="controls" class="hidden">
+    <div class="pad-left">
+      <div class="pad-btn" data-btn="left">⬅️</div>
+      <div class="pad-btn" data-btn="right">➡️</div>
+    </div>
+    <div class="pad-btn jump" data-btn="jump" id="jump-btn">JUMP</div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- Draws the app icon. See README.md for how it becomes the PNGs in icons/. -->
+<body style="margin:0">
+<canvas id="c"></canvas>
+<script type="module">
+import { drawDragon, DEFAULT_DRAGON } from '../js/dragon.js';
+import { drawGem } from '../js/render.js';
+const size = Number(new URLSearchParams(location.search).get('size') || 512);
+const c = document.getElementById('c');
+c.width = c.height = size;
+const ctx = c.getContext('2d');
+const g = ctx.createRadialGradient(size / 2, size * 0.3, 0, size / 2, size / 2, size * 0.75);
+g.addColorStop(0, '#9b6cf0'); g.addColorStop(1, '#2b1a52');
+ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+drawGem(ctx, size * 0.78, size * 0.24, size * 0.26, 0);
+drawDragon(ctx, { ...DEFAULT_DRAGON, body: '#2e7d32', wingColor: '#fdd835', eyes: '#1e88e5' }, size * 0.5, size * 0.86, size * 0.36, 1, { t: 1 });
+document.title = 'ready';
+</script>
