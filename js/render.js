@@ -768,8 +768,11 @@ function cactusTile(ctx, px, py, s, nb) {
   const x = px + s * 0.32, w = s * 0.36;
   ctx.fillStyle = '#43a047'; ctx.strokeStyle = '#1b5e20'; ctx.lineWidth = Math.max(1, s * 0.035);
   ctx.beginPath();
-  if (top) ctx.roundRect(x, py + s * 0.1, w, s * 0.9 + 1, [w / 2, w / 2, 0, 0]);
-  else ctx.rect(x, py, w, s + 1);
+  if (top) { // rounded top (drawn by hand: older iPads can't round just some corners)
+    ctx.moveTo(x, py + s + 1);
+    ctx.arc(x + w / 2, py + s * 0.1 + w / 2, w / 2, Math.PI, 0);
+    ctx.lineTo(x + w, py + s + 1);
+  } else ctx.rect(x, py, w, s + 1);
   ctx.fill(); ctx.stroke();
   // An arm: on the right of a small cactus, and one on each side of a big one
   if (top || bottom) {
@@ -1049,7 +1052,11 @@ function drawStaticTile(ctx, level, c, tx, ty, px, py, s) {
   const theme = level.theme;
   const nb = (dx, dy) => tileAt(level, tx + dx, ty + dy);
   const sl = SLOPE[c.charCodeAt(0)];
-  if (c === '#') groundTile(ctx, theme, px, py, s, tx, ty, !isGroundish(nb(0, -1)), !isGroundish(nb(0, 1)) && nb(0, 1) !== '=' && nb(0, 1) !== '~');
+  if (c === '#') {
+    const below = nb(0, 1);
+    const ceiling = ty + 1 < level.H && !isGroundish(below) && below !== '=' && below !== '~';
+    groundTile(ctx, theme, px, py, s, tx, ty, !isGroundish(nb(0, -1)), ceiling);
+  }
   else if (sl) slopeTile(ctx, theme, px, py, s, tx, ty, sl, nb);
   else if (c === 'X') crateTile(ctx, theme, px, py, s, tx, ty, nb);
   else if (c === 'U') bushTile(ctx, theme, px, py, s, tx, nb);
