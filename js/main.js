@@ -1,4 +1,4 @@
-// Screens and buttons: title, dragon maker, story, level map, playing, and the ending.
+// Screens and buttons: title, dragon maker, story cutscenes, level map, playing, and the ending.
 
 import { WORLDS } from './themes.js';
 import { LEVELS_PER_WORLD, TOTAL_LEVELS } from './levels.js';
@@ -7,8 +7,9 @@ import {
 } from './dragon.js';
 import { loadSave, writeSave, gemCount, hasGem, isUnlocked as savedUnlocked, addGem, allGems } from './save.js';
 import { setupInput, clearInput } from './input.js';
-import { unlockAudio, setMuted, sfx } from './audio.js';
+import { unlockAudio, setMuted, sfx, stopMusic } from './audio.js';
 import { Game, FlyScene, MAX_HEARTS } from './game.js';
+import { Cutscene, preloadLost, sayLost } from './cutscene.js';
 
 const $ = id => document.getElementById(id);
 const save = loadSave();
@@ -19,6 +20,7 @@ const unlockAll = new URLSearchParams(location.search).has('unlock');
 const isUnlocked = i => unlockAll || savedUnlocked(save, i);
 
 window.addEventListener('pointerdown', unlockAudio, { capture: true });
+window.addEventListener('keydown', unlockAudio, { capture: true });
 document.addEventListener('click', e => { if (e.target.closest('button')) sfx.click(); });
 // No pinch-zoom or double-tap zoom while playing
 document.addEventListener('gesturestart', e => e.preventDefault());
@@ -65,7 +67,8 @@ function show(id) {
   $('controls').classList.toggle('hidden', id !== 'play' && id !== 'ending');
   clearInput();
   if (current === 'play' && id !== 'play') game.stop();
-  if (current === 'ending' && id !== 'ending') fly.stop();
+  if (current === 'ending' && id !== 'ending') { fly.stop(); stopMusic(); }
+  if (current === 'cutscene' && id !== 'cutscene') cutscene.stop();
   current = id;
 }
 
@@ -75,6 +78,7 @@ const dragon = () => save.dragon || { ...DEFAULT_DRAGON, name: 'Dragon' };
 function showTitle() {
   $('title-gems').textContent = `💎 ${gemCount(save)} / ${TOTAL_LEVELS}`;
   $('btn-fly').classList.toggle('hidden', !allGems(save));
+  $('btn-story').classList.toggle('hidden', !save.dragon);
   $('btn-mute').textContent = save.muted ? '🔇' : '🔊';
   show('title');
 }
@@ -86,6 +90,7 @@ $('btn-play').onclick = () => {
 };
 $('btn-dragon').onclick = () => openMaker(false);
 $('btn-fly').onclick = () => startEnding();
+$('btn-story').onclick = () => playCutscene('intro', showTitle);
 $('btn-mute').onclick = () => {
   save.muted = !save.muted;
   setMuted(save.muted);
@@ -158,21 +163,23 @@ $('btn-maker-done').onclick = () => {
   save.dragon = { ...draft };
   writeSave(save);
   draft = null;
-  if (makerFirstTime) showStory();
+  if (makerFirstTime) playCutscene('intro', () => openMap());
   else showTitle();
 };
 
-// ---------- Story ----------
-previews.set($('story-dragon'), dragon);
-function showStory() {
-  const n = escapeHtml(save.dragon.name);
-  $('story-text').innerHTML =
-    `Oh no! A grumpy wizard cast a spell on <b>${n}</b>! 🪄<br>` +
-    `Now <b>${n}</b> can't fly. 😢<br>` +
-    `Run and jump through <b>100 levels</b> and collect <b>100 magic gems 💎</b> to break the spell!`;
-  show('story');
+// ---------- Story cutscenes ----------
+const cutscene = new Cutscene($('cutscene'));
+function playCutscene(name, then, opts) {
+  show('cutscene');
+  cutscene.play(name, dragon(), then, opts);
 }
-$('btn-story-go').onclick = () => openMap();
+$('btn-cut-skip').onclick = () => cutscene.finish();
+// On a computer: Enter or Space for the next picture, Escape to skip
+window.addEventListener('keydown', e => {
+  if (current !== 'cutscene') return;
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!e.repeat) cutscene.next(); }
+  if (e.key === 'Escape') cutscene.finish();
+});
 
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -232,13 +239,17 @@ $('btn-map-back').onclick = () => showTitle();
 // ---------- Playing ----------
 let playing = 0;
 let winShownAt = 0;
+let lostTimer = 0;
 const game = new Game($('game'), {
   onHearts(n) {
     $('hearts').textContent = '❤️'.repeat(Math.max(0, n)) + '🤍'.repeat(Math.max(0, MAX_HEARTS - n));
   },
   onLevelLost() {
+    const line = sayLost();
+    $('lost-line').textContent = line.text;
     $('lost-box').classList.remove('hidden');
-    setTimeout(() => $('lost-box').classList.add('hidden'), 1500);
+    clearTimeout(lostTimer);
+    lostTimer = setTimeout(() => $('lost-box').classList.add('hidden'), Math.max(1500, line.dur * 1000));
   },
   onGem() {
     const before = allGems(save);
@@ -260,6 +271,7 @@ function playLevel(i) {
   $('play-gems').textContent = `💎 ${gemCount(save)}`;
   ['pause-box', 'win-box', 'lost-box'].forEach(id => $(id).classList.add('hidden'));
   show('play');
+  preloadLost();
   game.resize();
   game.start(i, dragon());
 }
@@ -296,12 +308,15 @@ document.addEventListener('visibilitychange', () => {
 // ---------- The ending ----------
 const fly = new FlyScene($('fly'));
 function startEnding() {
-  const n = escapeHtml(dragon().name);
-  $('ending-text').innerHTML = `🎉 The spell is broken! 🎉<br>${n} can FLY again! Press JUMP to flap!`;
   save.seenEnding = true;
   writeSave(save);
+  // The story ending, then free flying with the happy music still going
+  playCutscene('ending', startFlying, { keepMusic: true });
+}
+function startFlying() {
+  const n = escapeHtml(dragon().name);
+  $('ending-text').innerHTML = `🎉 The spell is broken! 🎉<br>${n} can FLY again! Press JUMP to flap!`;
   show('ending');
-  sfx.victory();
   fly.start(dragon());
 }
 $('btn-ending-home').onclick = () => showTitle();
@@ -310,4 +325,4 @@ $('btn-ending-home').onclick = () => showTitle();
 showTitle();
 
 // Handy for testing in the browser console
-window.parcor = { game, save, playLevel };
+window.parcor = { game, save, playLevel, playCutscene, startEnding, cutscene };

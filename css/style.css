@@ -140,10 +140,49 @@ button {
 }
 .swatch.selected { border-color: #ffd54f; box-shadow: 0 0 0 4px #ffd54f; }
 
-/* ---------- Story ---------- */
-#story { flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 20px; text-align: center; }
-.story-text { font-size: clamp(22px, 3.4vw, 34px); max-width: 860px; line-height: 1.35; }
-.story-text b { color: #ffd54f; }
+/* ---------- Story cutscenes ---------- */
+#cutscene { background: #2b1a52; padding: 0; }
+#cutscene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.cut-loading {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(24px, 3.6vw, 38px); font-weight: bold;
+  background: rgba(43, 26, 82, 0.85);
+  animation: pulse 0.8s infinite alternate;
+}
+.cut-caption {
+  position: absolute;
+  left: calc(20px + env(safe-area-inset-left)); right: calc(20px + env(safe-area-inset-right));
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.94);
+  color: #3a2266;
+  border-radius: 24px;
+  padding: 26px 26px 16px;
+  font-size: clamp(20px, 3vw, 32px);
+  line-height: 1.3;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.cut-who {
+  position: absolute; top: -20px; left: 22px;
+  padding: 4px 16px;
+  border-radius: 14px;
+  font-size: clamp(16px, 2.2vw, 22px); font-weight: bold;
+  color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  background: #f9a825;
+}
+.cut-who.wizard { background: #5e35b1; }
+.cut-text { display: block; font-weight: bold; }
+.cut-tap { display: block; text-align: right; font-size: 15px; opacity: 0.55; margin-top: 4px; }
+.cut-skip {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right));
+  border: none; border-radius: 18px;
+  background: rgba(255, 255, 255, 0.85); color: #4a2c82;
+  font-size: 24px; font-weight: bold;
+  padding: 10px 20px;
+  z-index: 5;
+}
+.lost-line { margin: 0; font-size: 20px; max-width: 420px; text-align: center; }
 
 /* ---------- Map ---------- */
 #map { flex-direction: column; }

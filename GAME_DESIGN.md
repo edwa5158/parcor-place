@@ -7,6 +7,17 @@ A dragon has had a spell cast on it and **can't fly**. To break the spell it mus
 run and jump through **100 parkour levels** and collect **100 magic gems**.
 When all 100 gems are collected, the spell breaks and **the dragon can fly again!**
 
+### Cutscenes
+The story is told in cartoon cutscenes with voices and music:
+- **The start:** the dragon loves to fly, but it zooms past the grumpy **Wizard Grumbleboots**
+  and knocks his pancakes right off the plate. Splat! He casts a spell ("Abra... ca... GRUMPY!"),
+  and hides 100 magic gems all over the land.
+- **The ending:** the gems glow, the spell pops, and the dragon flies again. The wizard says sorry
+  (he was just hungry), they make pancakes together, and fly off as best friends.
+- **Losing all 3 hearts:** a short funny or cheering line from the wizard, the narrator, or the dragon.
+
+Tap to go to the next picture, or **Skip**. The **📖 Story** button on the title screen plays the start again.
+
 ## How you play
 - Side-view platformer (run and jump).
 - iPad touch controls: on-screen buttons **⬅️ ➡️** and **JUMP**.

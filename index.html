@@ -25,6 +25,7 @@
     <div class="menu">
       <button class="big-btn green" id="btn-play">▶ Play</button>
       <button class="big-btn purple" id="btn-dragon">🎨 My Dragon</button>
+      <button class="big-btn blue hidden" id="btn-story">📖 Story</button>
       <button class="big-btn gold hidden" id="btn-fly">🪽 Fly!</button>
     </div>
     <button class="corner-btn" id="btn-mute" aria-label="Sound on or off">🔊</button>
@@ -43,11 +44,16 @@
     <div class="maker-right" id="maker-options"></div>
   </section>
 
-  <!-- Story -->
-  <section id="story" class="screen">
-    <canvas id="story-dragon" class="dragon-preview"></canvas>
-    <div class="story-text" id="story-text"></div>
-    <button class="big-btn green" id="btn-story-go">Let's go! ▶</button>
+  <!-- Story cutscenes (js/cutscene.js) -->
+  <section id="cutscene" class="screen">
+    <canvas></canvas>
+    <div class="cut-loading">✨ Getting the story ready... ✨</div>
+    <div class="cut-caption hidden">
+      <span class="cut-who"></span>
+      <span class="cut-text"></span>
+      <span class="cut-tap">Tap for next ▶</span>
+    </div>
+    <button class="cut-skip" id="btn-cut-skip">Skip ⏭</button>
   </section>
 
   <!-- Level map -->
@@ -96,6 +102,7 @@
     <div class="overlay hidden pass-through" id="lost-box">
       <div class="panel small">
         <h2>Oh no! Try again! 💪</h2>
+        <p class="lost-line" id="lost-line"></p>
       </div>
     </div>
   </section>
