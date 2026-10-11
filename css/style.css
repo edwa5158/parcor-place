@@ -210,7 +210,8 @@ button {
 .world-btn.locked { opacity: 0.45; }
 .world-btn small { font-size: 16px; opacity: 0.9; }
 .world-panel { flex: 1; display: flex; flex-direction: column; align-items: center; }
-.world-panel h2 { font-size: 40px; margin: 6px 0 18px; }
+.world-head { display: flex; align-items: center; gap: 14px; margin: 6px 0 18px; }
+.world-panel h2 { font-size: 40px; margin: 0; }
 .level-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
 .level-btn {
   width: 104px; height: 104px;

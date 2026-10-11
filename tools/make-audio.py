@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Makes all the cutscene audio for Parcor Place: the voices, the music, and the sound effects.
 
-The story script is in this file (INTRO, ENDING, LOST below). Change it here and run this again.
+The story script is in this file (INTRO, ENDING, WORLD_SCENES, LOST below). Change it here and run this again.
 It writes audio/*.mp3 and js/story-data.js (the captions and timings the game uses).
 
 Voices come from Kokoro, an open text-to-speech model that runs on this computer.
@@ -132,6 +132,68 @@ ENDING = [
         ('dragon', "Now let's go fly!"),
     ]),
 ]
+
+# A quick scene each time the dragon reaches a new world (worlds 2 to 10). Wizard Grumbleboots
+# pops in, more and more worried about his gems, and hungrier and hungrier (that's why he's so grumpy).
+WORLD_SCENES = {
+    2: [
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "Ten gems? Ha! Beginner's luck.", 'laugh'),
+        ('wizard', "You'll never get past my prickly treetops!", 'grumpy'),
+        ('dragon', "Watch me hop!"),
+    ],
+    3: [
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "Twenty gems?! Grr!", 'shock'),
+        ('wizard', "Nobody gets through the spiky old castle. Nobody!", 'grumpy'),
+        ('dragon', "Spiky? I'll just jump!"),
+    ],
+    4: [
+        ('narrator', "Up, up, up into the clouds!"),
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "Thirty gems! How are you doing that without flying?", 'shock'),
+        ('dragon', "Parkour!"),
+    ],
+    5: [
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "Forty gems?! Well, Lava Land is hot, hot, HOT!", 'grumpy'),
+        ('cue', 'rumble'), ('sfx', 'rumble'),
+        ('dragon', "Whoa! Was that a volcano?"),
+        ('wizard', "No... that was my tummy.", 'sorry'),
+    ],
+    6: [
+        ('narrator', "Fifty gems! Halfway there!"),
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "Brrr! Watch out for slippery ice, and pointy icicles!", 'grumpy'),
+        ('wizard', "Not that I care!", 'grumpy'),
+    ],
+    7: [
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "Sixty gems! My plan is ruined!", 'shock'),
+        ('cue', 'rumble'), ('sfx', 'rumble'),
+        ('wizard', "And I'm so hungry!", 'sorry'),
+        ('dragon', "Ooh, sparkly caves!"),
+    ],
+    8: [
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "Seventy gems?! The desert is full of prickly cactuses. You'll never...", 'grumpy'),
+        ('wizard', "Hmm. You might, actually.", 'sorry'),
+        ('dragon', "Woo-hoo!"),
+    ],
+    9: [
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "Eighty gems! Quick, to my Spike Factory!", 'shock'),
+        ('wizard', "Nobody can get past all those spinning saws!", 'zap'),
+        ('dragon', "I can! Parkour!"),
+    ],
+    10: [
+        ('narrator', "Ninety gems! Only ten more!"),
+        ('cue', 'enter'), ('sfx', 'poof'),
+        ('wizard', "This is my tower. The last ten gems are all the way at the top.", 'grumpy'),
+        ('cue', 'rumble'), ('sfx', 'rumble'),
+        ('wizard', "Is it lunchtime yet?", 'sorry'),
+    ],
+}
 
 # Short lines for when all three hearts are gone. The game takes turns playing them.
 LOST = [
@@ -628,9 +690,29 @@ def sfx_tada(sr):
     return normalize(x, 0.8), 1.4
 
 
+def sfx_poof(sr):
+    """A puff of smoke: the wizard pops in."""
+    t, x = swept_noise(0.5, sr, 2400, 300, lambda p: p ** 0.5)
+    x = normalize(x * np.exp(-t * 8) * np.minimum(1, t / 0.01), 0.7) + 0.35 * sparkles(0.5, sr, 6, decay=3)
+    return normalize(x, 0.7), 0.35
+
+
+def sfx_rumble(sr):
+    """A very hungry tummy. Grrrumble!"""
+    t = secs(1.1, sr)
+    f = 115 + 35 * np.sin(2 * np.pi * 2.2 * t) + 12 * np.sin(2 * np.pi * 7.3 * t)
+    ph = 2 * np.pi * np.cumsum(f) / sr
+    x = sum((1 / k) * np.sin(k * ph) for k in range(1, 9))
+    gurgle = 0.6 + 0.4 * np.sin(2 * np.pi * 11 * t + 3 * np.sin(2 * np.pi * 1.3 * t))
+    x = lfilter([0.3], [1, -0.7], x) * gurgle * np.minimum(1, t / 0.08) * np.minimum(1, (1.1 - t) / 0.3)
+    return normalize(x, 0.8), 0.9
+
+
+# New sound effects go at the end, so the older ones come out exactly the same as before.
 SFX = {
     'whoosh': sfx_whoosh, 'splat': sfx_splat, 'zap': sfx_zap, 'sting': sfx_sting, 'wahwah': sfx_wahwah,
     'shimmer': sfx_shimmer, 'spellbreak': sfx_spellbreak, 'boing': sfx_boing, 'tada': sfx_tada,
+    'poof': sfx_poof, 'rumble': sfx_rumble,
 }
 
 
@@ -751,7 +833,12 @@ def main():
     print('Voices')
     voices = Voices(args.models)
     cutscenes = {}
-    for scene_name, panels in (('intro', INTRO), ('ending', ENDING)):
+    scenes = [('intro', INTRO), ('ending', ENDING)]
+    # One picture for each new world: the world's own background, the dragon, and the wizard.
+    # (world in the game is counted from 0, so world 2 is index 1)
+    scenes += [(f'world-{n}', [dict(scene='arrive', world=n - 1, music='wizard', steps=steps)])
+               for n, steps in WORLD_SCENES.items()]
+    for scene_name, panels in scenes:
         out = []
         for i, panel in enumerate(panels, 1):
             x, lines, cues, dur = build_clip(panel['steps'], voices, sfx)

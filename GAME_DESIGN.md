@@ -14,6 +14,10 @@ The story is told in cartoon cutscenes with voices and music:
   and hides 100 magic gems all over the land.
 - **The ending:** the gems glow, the spell pops, and the dragon flies again. The wizard says sorry
   (he was just hungry), they make pancakes together, and fly off as best friends.
+- **Getting to a new world:** a quick scene in that world. Wizard Grumbleboots pops in (poof!),
+  more and more worried as the gems add up (10, 20, 30...), and hungrier and hungrier: his tummy
+  rumbles in Lava Land, and by his tower he's asking if it's lunchtime yet. That's why he was so grumpy.
+  It plays the first time you start a world; the **📖** button on the map plays it again.
 - **Losing all 3 hearts:** a short funny or cheering line from the wizard, the narrator, or the dragon.
 
 Tap to go to the next picture, or **Skip**. The **📖 Story** button on the title screen plays the start again.

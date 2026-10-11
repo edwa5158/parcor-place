@@ -6,7 +6,8 @@ const KEY = 'parcorPlace.save';
 const VERSION = 1;
 
 function fresh() {
-  return { version: VERSION, dragon: null, gems: [], muted: false, seenEnding: false };
+  // seenWorlds: the worlds whose story scene has played (counted from 0)
+  return { version: VERSION, dragon: null, gems: [], muted: false, seenEnding: false, seenWorlds: [] };
 }
 
 export function loadSave() {

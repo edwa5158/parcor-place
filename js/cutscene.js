@@ -5,8 +5,9 @@
 import { CUTSCENES, MUSIC, CAST, LOST } from './story-data.js';
 import { loadSound, playVoice, stopVoice, voiceLevel, playMusic, stopMusic, musicVolume } from './audio.js';
 import { drawDragon } from './dragon.js';
-import { drawGem } from './render.js';
+import { drawGem, drawBackground, drawTiles } from './render.js';
 import { WORLDS } from './themes.js';
+import { buildLevel, LEVELS_PER_WORLD } from './levels.js';
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -156,6 +157,16 @@ export class Cutscene {
   }
 }
 
+export const hasCutscene = name => !!CUTSCENES[name];
+
+// Start loading a cutscene's sounds early, so it can start right away later
+export function preloadCutscene(name) {
+  for (const p of CUTSCENES[name] || []) {
+    loadSound(p.clip);
+    if (p.music) loadSound(MUSIC[p.music].file);
+  }
+}
+
 // ---------- The lines for when all the hearts are gone ----------
 let lostOrder = [];
 export function preloadLost() { LOST.forEach(l => loadSound(l.clip)); }
@@ -168,6 +179,7 @@ export function sayLost() {
 }
 
 // ---------- Drawing helpers ----------
+const NO_STATE = { checkpoints: new Set(), springSquash: new Map(), gemTaken: true };
 // The ground line: a bit above the caption box
 const ground = (st, k) => Math.min(st.h * k, st.floor - st.s * 0.1);
 
@@ -564,6 +576,34 @@ function puff(ctx, x, y, s, k) {
   ctx.globalAlpha = 1;
 }
 
+// A strip of a world's ground with some of its obstacles on it, for the scene when you get there.
+// One letter per tile on the ground (see levels.js); the wizard shows off what's coming.
+const SHOWCASE = ['X..^', 'UU..X..^', 'X..UU..^', 'X...^', 'X..^..^', 'UU..X..^', 'X...K', 'Y..UU..Y', 'X..^..^', 'X..K..^'];
+const strips = new Map();
+function showcaseStrip(world, cols, rows) {
+  const key = `${world},${cols},${rows}`;
+  if (!strips.has(key)) {
+    const props = SHOWCASE[world];
+    const start = Math.max(2, Math.floor(cols * 0.36));
+    const grid = [];
+    for (let r = 0; r < rows; r++) {
+      let row = '';
+      for (let c = 0; c < cols; c++) {
+        const p = c >= start && c - start < props.length ? props[c - start] : '.';
+        if (r === 1 && p === 'Y' && (c - start) % 6 === 0) row += 'Y'; // a big two-tile cactus
+        else if (r === 2) row += p === '~' ? '.' : p;
+        else if (r === 3) row += p === '~' ? '~' : '#';
+        else if (r >= 4) row += '#';
+        else row += '.';
+      }
+      grid.push(row);
+    }
+    if (strips.size > 8) strips.clear();
+    strips.set(key, buildLevel(world * LEVELS_PER_WORLD, grid));
+  }
+  return strips.get(key);
+}
+
 // ---------- The scenes ----------
 const SCENES = {
   // Parcor Place on a sunny day, the dragon flying around
@@ -674,6 +714,59 @@ const SCENES = {
 
     // The dragon sitting nearby at the end
     if (p.dragon === 'perch') dragonAt(ctx, st, w * 0.5, gy, s * 1.0, 1, {});
+  },
+
+  // Getting to a new world: its own background and obstacles, and the wizard pops in to grumble.
+  arrive(ctx, st) {
+    const { w, h, s, t, p } = st;
+    const theme = WORLDS[p.world];
+    drawBackground(ctx, theme, w, h, t * s * 0.6, t);
+    const gy = ground(st, 0.8);
+    const ts = s * 0.85;
+    const cols = Math.ceil(w / ts) + 1, rows = 4 + Math.ceil((h - gy) / ts);
+    // The top of the ground (row 3 of the strip) sits at gy
+    drawTiles(ctx, showcaseStrip(p.world, cols, rows), 0, 3 - gy / ts, ts, w / ts, h / ts, t, NO_STATE);
+
+    // The world's name pops up at the top
+    const k = ease(clamp(t / 0.5, 0, 1));
+    ctx.save();
+    ctx.translate(w / 2, h * 0.13);
+    ctx.scale(0.4 + 0.6 * k + Math.sin(t * 4) * 0.015, 0.4 + 0.6 * k);
+    ctx.globalAlpha = k;
+    ctx.font = `bold ${Math.round(s * 0.62)}px "Trebuchet MS", system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const title = `${theme.emoji} ${theme.name}`;
+    const tw = ctx.measureText(title).width + s * 0.8;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    roundRect(ctx, -tw / 2, -s * 0.48, tw, s * 0.96, s * 0.4);
+    ctx.fill();
+    ctx.fillStyle = '#4a2c82';
+    ctx.fillText(title, 0, s * 0.03);
+    ctx.restore();
+    // How many gems so far, as a little row of gems under the name
+    const got = p.world * LEVELS_PER_WORLD;
+    nameTag(ctx, w / 2, h * 0.13 + s * 0.85, s, `💎 ${got} / ${WORLDS.length * LEVELS_PER_WORLD}`);
+
+    dragonAt(ctx, st, w * 0.2, gy, s * 1.1, 1, {});
+
+    const wx = w * 0.82, u = s * 0.95;
+    const enter = st.cue('enter');
+    const rumble = st.cue('rumble');
+    if (enter >= 0) {
+      // Hop a little when his tummy rumbles
+      const wob = rumble >= 0 && rumble < 1 ? Math.sin(rumble * 40) * s * 0.04 : 0;
+      wizardAt(ctx, st, wx + wob, gy, u);
+      if (rumble >= 0 && rumble < 1.2) {
+        ctx.strokeStyle = `rgba(80,40,20,${1 - rumble / 1.2})`; ctx.lineWidth = Math.max(2, s * 0.05); ctx.lineCap = 'round';
+        for (let i = 0; i < 3; i++) {
+          const r = s * (0.5 + i * 0.22 + rumble * 0.3);
+          ctx.beginPath(); ctx.arc(wx, gy - u * 0.9, r, -0.5, 0.5); ctx.stroke();
+          ctx.beginPath(); ctx.arc(wx, gy - u * 0.9, r, Math.PI - 0.5, Math.PI + 0.5); ctx.stroke();
+        }
+      }
+    }
+    puff(ctx, wx, gy - u * 1.5, s, enter / 0.6);
+    if (enter >= 0 && enter < 1.2) for (let i = 0; i < 8; i++) sparkle(ctx, wx + Math.cos(i) * s * enter * 2, gy - u * 1.5 + Math.sin(i * 2) * s * enter * 1.5, s * 0.12, '#ffd54f');
   },
 
   // Under the spell: can't fly

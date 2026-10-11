@@ -49,8 +49,8 @@ If it can win, a kid has some room for mistakes. Run this after changing
 
 ## Story voices and music
 
-The cutscenes (the story at the start, the ending after 100 gems, and the short lines
-when all the hearts are gone) are written in `tools/make-audio.py`. The voices come from
+The cutscenes (the story at the start, a quick scene for each new world, the ending after
+100 gems, and the short lines when all the hearts are gone) are written in `tools/make-audio.py`. The voices come from
 [Kokoro](https://github.com/thewh1teagle/kokoro-onnx), a free text-to-speech model that runs
 on your own computer. The music and sound effects are made from scratch in the same script.
 To change a line or the music, edit the script and run it again (setup steps are at the top of the file):

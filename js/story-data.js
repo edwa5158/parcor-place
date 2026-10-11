@@ -346,6 +346,287 @@ export const CUTSCENES = {
         "theend": 7.16
       }
     }
+  ],
+  "world-2": [
+    {
+      "scene": "arrive",
+      "world": 1,
+      "music": "wizard",
+      "clip": "audio/world-2-1.mp3",
+      "dur": 9.19,
+      "lines": [
+        {
+          "who": "wizard",
+          "text": "Ten gems? Ha! Beginner's luck.",
+          "t": 0.6,
+          "mood": "laugh"
+        },
+        {
+          "who": "wizard",
+          "text": "You'll never get past my prickly treetops!",
+          "t": 4.11,
+          "mood": "grumpy"
+        },
+        {
+          "who": "dragon",
+          "text": "Watch me hop!",
+          "t": 8.0
+        }
+      ],
+      "cues": {
+        "enter": 0.25
+      }
+    }
+  ],
+  "world-3": [
+    {
+      "scene": "arrive",
+      "world": 2,
+      "music": "wizard",
+      "clip": "audio/world-3-1.mp3",
+      "dur": 10.45,
+      "lines": [
+        {
+          "who": "wizard",
+          "text": "Twenty gems?! Grr!",
+          "t": 0.6,
+          "mood": "shock"
+        },
+        {
+          "who": "wizard",
+          "text": "Nobody gets through the spiky old castle. Nobody!",
+          "t": 3.81,
+          "mood": "grumpy"
+        },
+        {
+          "who": "dragon",
+          "text": "Spiky? I'll just jump!",
+          "t": 8.58
+        }
+      ],
+      "cues": {
+        "enter": 0.25
+      }
+    }
+  ],
+  "world-4": [
+    {
+      "scene": "arrive",
+      "world": 3,
+      "music": "wizard",
+      "clip": "audio/world-4-1.mp3",
+      "dur": 8.03,
+      "lines": [
+        {
+          "who": "narrator",
+          "text": "Up, up, up into the clouds!",
+          "t": 0.25
+        },
+        {
+          "who": "wizard",
+          "text": "Thirty gems! How are you doing that without flying?",
+          "t": 2.55,
+          "mood": "shock"
+        },
+        {
+          "who": "dragon",
+          "text": "Parkour!",
+          "t": 7.07
+        }
+      ],
+      "cues": {
+        "enter": 2.2
+      }
+    }
+  ],
+  "world-5": [
+    {
+      "scene": "arrive",
+      "world": 4,
+      "music": "wizard",
+      "clip": "audio/world-5-1.mp3",
+      "dur": 10.82,
+      "lines": [
+        {
+          "who": "wizard",
+          "text": "Forty gems?! Well, Lava Land is hot, hot, HOT!",
+          "t": 0.6,
+          "mood": "grumpy"
+        },
+        {
+          "who": "dragon",
+          "text": "Whoa! Was that a volcano?",
+          "t": 6.16
+        },
+        {
+          "who": "wizard",
+          "text": "No... that was my tummy.",
+          "t": 8.07,
+          "mood": "sorry"
+        }
+      ],
+      "cues": {
+        "enter": 0.25,
+        "rumble": 5.26
+      }
+    }
+  ],
+  "world-6": [
+    {
+      "scene": "arrive",
+      "world": 5,
+      "music": "wizard",
+      "clip": "audio/world-6-1.mp3",
+      "dur": 10.5,
+      "lines": [
+        {
+          "who": "narrator",
+          "text": "Fifty gems! Halfway there!",
+          "t": 0.25
+        },
+        {
+          "who": "wizard",
+          "text": "Brrr! Watch out for slippery ice, and pointy icicles!",
+          "t": 2.67,
+          "mood": "grumpy"
+        },
+        {
+          "who": "wizard",
+          "text": "Not that I care!",
+          "t": 8.07,
+          "mood": "grumpy"
+        }
+      ],
+      "cues": {
+        "enter": 2.32
+      }
+    }
+  ],
+  "world-7": [
+    {
+      "scene": "arrive",
+      "world": 6,
+      "music": "wizard",
+      "clip": "audio/world-7-1.mp3",
+      "dur": 9.38,
+      "lines": [
+        {
+          "who": "wizard",
+          "text": "Sixty gems! My plan is ruined!",
+          "t": 0.6,
+          "mood": "shock"
+        },
+        {
+          "who": "wizard",
+          "text": "And I'm so hungry!",
+          "t": 5.26,
+          "mood": "sorry"
+        },
+        {
+          "who": "dragon",
+          "text": "Ooh, sparkly caves!",
+          "t": 7.8
+        }
+      ],
+      "cues": {
+        "enter": 0.25,
+        "rumble": 4.36
+      }
+    }
+  ],
+  "world-8": [
+    {
+      "scene": "arrive",
+      "world": 7,
+      "music": "wizard",
+      "clip": "audio/world-8-1.mp3",
+      "dur": 10.43,
+      "lines": [
+        {
+          "who": "wizard",
+          "text": "Seventy gems?! The desert is full of prickly cactuses. You'll never...",
+          "t": 0.6,
+          "mood": "grumpy"
+        },
+        {
+          "who": "wizard",
+          "text": "Hmm. You might, actually.",
+          "t": 6.5,
+          "mood": "sorry"
+        },
+        {
+          "who": "dragon",
+          "text": "Woo-hoo!",
+          "t": 9.47
+        }
+      ],
+      "cues": {
+        "enter": 0.25
+      }
+    }
+  ],
+  "world-9": [
+    {
+      "scene": "arrive",
+      "world": 8,
+      "music": "wizard",
+      "clip": "audio/world-9-1.mp3",
+      "dur": 10.93,
+      "lines": [
+        {
+          "who": "wizard",
+          "text": "Eighty gems! Quick, to my Spike Factory!",
+          "t": 0.6,
+          "mood": "shock"
+        },
+        {
+          "who": "wizard",
+          "text": "Nobody can get past all those spinning saws!",
+          "t": 4.79,
+          "mood": "zap"
+        },
+        {
+          "who": "dragon",
+          "text": "I can! Parkour!",
+          "t": 9.29
+        }
+      ],
+      "cues": {
+        "enter": 0.25
+      }
+    }
+  ],
+  "world-10": [
+    {
+      "scene": "arrive",
+      "world": 9,
+      "music": "wizard",
+      "clip": "audio/world-10-1.mp3",
+      "dur": 12.05,
+      "lines": [
+        {
+          "who": "narrator",
+          "text": "Ninety gems! Only ten more!",
+          "t": 0.25
+        },
+        {
+          "who": "wizard",
+          "text": "This is my tower. The last ten gems are all the way at the top.",
+          "t": 2.85,
+          "mood": "grumpy"
+        },
+        {
+          "who": "wizard",
+          "text": "Is it lunchtime yet?",
+          "t": 9.31,
+          "mood": "sorry"
+        }
+      ],
+      "cues": {
+        "enter": 2.5,
+        "rumble": 8.41
+      }
+    }
   ]
 };
 

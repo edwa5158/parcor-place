@@ -9,7 +9,7 @@ import { loadSave, writeSave, gemCount, hasGem, isUnlocked as savedUnlocked, add
 import { setupInput, clearInput } from './input.js';
 import { unlockAudio, setMuted, sfx, stopMusic } from './audio.js';
 import { Game, FlyScene, MAX_HEARTS } from './game.js';
-import { Cutscene, preloadLost, sayLost } from './cutscene.js';
+import { Cutscene, preloadLost, sayLost, hasCutscene, preloadCutscene } from './cutscene.js';
 
 const $ = id => document.getElementById(id);
 const save = loadSave();
@@ -219,6 +219,8 @@ function buildMap() {
 
   const w = WORLDS[selectedWorld];
   $('world-title').textContent = `${w.emoji} ${w.name}`;
+  const seen = unlockAll || save.seenWorlds.includes(selectedWorld);
+  $('btn-world-story').classList.toggle('hidden', !seen || !hasCutscene(worldScene(selectedWorld)));
   const grid = $('level-grid');
   grid.innerHTML = '';
   const next = nextLevel();
@@ -236,6 +238,10 @@ function buildMap() {
 }
 
 $('btn-map-back').onclick = () => showTitle();
+$('btn-world-story').onclick = () => {
+  const wi = selectedWorld;
+  playCutscene(worldScene(wi), () => openMap(wi));
+};
 
 // ---------- Playing ----------
 let playing = 0;
@@ -265,9 +271,22 @@ const game = new Game($('game'), {
   },
 });
 
-function playLevel(i) {
+// The story scene for getting to a world (world 2 is index 1)
+const worldScene = wi => `world-${wi + 1}`;
+
+function playLevel(i, story = true) {
+  const wi = Math.floor(i / LEVELS_PER_WORLD);
+  // The first time you get to a new world, the wizard pops in for a quick story scene first
+  if (story && i % LEVELS_PER_WORLD === 0 && hasCutscene(worldScene(wi)) && !save.seenWorlds.includes(wi)) {
+    save.seenWorlds.push(wi);
+    writeSave(save);
+    playCutscene(worldScene(wi), () => playLevel(i, false));
+    return;
+  }
+  // Nearly at the next world? Start loading its scene now.
+  if (i % LEVELS_PER_WORLD === LEVELS_PER_WORLD - 1) preloadCutscene(worldScene(wi + 1));
   playing = i;
-  const w = WORLDS[Math.floor(i / LEVELS_PER_WORLD)];
+  const w = WORLDS[wi];
   $('level-name').textContent = `${w.emoji} ${w.name} ${(i % LEVELS_PER_WORLD) + 1}`;
   $('play-gems').textContent = `💎 ${gemCount(save)}`;
   ['pause-box', 'win-box', 'lost-box'].forEach(id => $(id).classList.add('hidden'));
@@ -288,7 +307,7 @@ $('btn-resume').onclick = () => {
   $('pause-box').classList.add('hidden');
   $('controls').classList.remove('hidden');
 };
-$('btn-restart').onclick = () => playLevel(playing);
+$('btn-restart').onclick = () => playLevel(playing, false);
 $('btn-to-map').onclick = () => openMap(Math.floor(playing / LEVELS_PER_WORLD));
 $('btn-next').onclick = () => playLevel(Math.min(TOTAL_LEVELS - 1, playing + 1));
 $('btn-win-map').onclick = () => openMap(Math.floor(Math.min(TOTAL_LEVELS - 1, playing + 1) / LEVELS_PER_WORLD));
