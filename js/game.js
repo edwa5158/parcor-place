@@ -1,6 +1,6 @@
 // Playing a level: hearts, checkpoints, the camera, and drawing everything.
 
-import { P, DT, createPlayer, step } from './physics.js';
+import { P, DT, createPlayer, step, inTunnel, isSolid } from './physics.js';
 import { getLevel } from './levels.js';
 import { drawDragon } from './dragon.js';
 import { drawBackground, drawTiles, drawHints, drawGem } from './render.js';
@@ -19,12 +19,13 @@ export class Game {
     this.paused = false;
     this.particles = [];
     this.raf = 0;
+    this.quality = 0; // 0 = sharpest; goes up if the iPad is having a hard time keeping up
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, [2, 1.5, 1][this.quality]);
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
@@ -45,9 +46,12 @@ export class Game {
     this.respawn(true);
     this.camX = this.targetCamX();
     this.camY = this.targetCamY();
+    this.prev = null;
     this.time = 0;
     this.acc = 0;
     this.freeze = 0;
+    this.slowFrames = 0;
+    this.frames = 0;
     this.finished = false;
     this.paused = false;
     this.hooks.onHearts(this.hearts);
@@ -67,6 +71,10 @@ export class Game {
     this.player = createPlayer(this.checkpoint.x, this.checkpoint.y);
     this.invincible = fresh ? 0 : 1.5;
     this.walk = 0;
+    this.roll = 0;
+    this.squash = 0;
+    this.dust = 0;
+    this.prev = null;
   }
 
   targetCamX() {
@@ -85,7 +93,8 @@ export class Game {
   frame(now) {
     if (!this.running) return;
     this.raf = requestAnimationFrame(t => this.frame(t));
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    const raw = (now - this.last) / 1000;
+    const dt = Math.min(0.05, raw);
     this.last = now;
     if (!this.paused) {
       this.time += dt;
@@ -94,11 +103,27 @@ export class Game {
         this.update();
         this.acc -= DT;
       }
+      this.watchSpeed(raw);
     }
-    this.draw();
+    // Draw part-way between the last two physics steps, so the motion is smooth
+    // even when a screen frame doesn't line up with the physics steps.
+    this.draw(this.paused ? 1 : this.acc / DT);
+  }
+
+  // If lots of frames are slow, draw at a lower resolution so the game stays smooth.
+  watchSpeed(raw) {
+    if (this.freeze > 0 || raw > 0.25) return;
+    this.frames++;
+    if (raw > 1 / 45) this.slowFrames++;
+    if (this.frames >= 180) {
+      if (this.slowFrames > 45 && this.quality < 2) { this.quality++; this.resize(); }
+      this.frames = 0;
+      this.slowFrames = 0;
+    }
   }
 
   update() {
+    this.prev = { x: this.player.x, y: this.player.y, camX: this.camX, camY: this.camY };
     this.updateParticles();
     for (const k in this.state.springSquash) {
       this.state.springSquash[k] = Math.max(0, this.state.springSquash[k] - DT * 4);
@@ -113,14 +138,34 @@ export class Game {
     const events = step(p, input, this.level, P);
     if (this.invincible > 0) this.invincible -= DT;
     if (p.onGround && Math.abs(p.vx) > 0.5) this.walk += DT * Math.abs(p.vx) * 2.2;
+    this.roll = Math.max(0, this.roll - DT);
+    this.squash *= Math.pow(0.002, DT);
+
+    // Dust while sliding down a wall or under a tunnel
+    const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    const sliding = (p.wall && dir === p.wall && p.vy > 0) || (inTunnel(this.level, p) && Math.abs(p.vx) > 2);
+    if (sliding && (this.dust -= DT) <= 0) {
+      this.dust = 0.06;
+      if (p.wall) this.puff(p.x + p.wall * P.W / 2, p.y - 0.6, 1);
+      else this.puff(p.x - Math.sign(p.vx) * 0.3, p.y, 1);
+    }
 
     for (const e of events) {
-      if (e === 'jump') { sfx.jump(); this.puff(p.x, p.y, 4); }
+      if (e === 'jump') { sfx.jump(); this.puff(p.x, p.y, 4); this.squash = -0.7; this.roll = 0; }
+      else if (e === 'walljump') { sfx.walljump(); this.puff(p.x + p.wallSide * P.W / 2, p.y - 0.5, 5); this.squash = -0.6; }
+      else if (e === 'grab') sfx.grab();
+      else if (e === 'vault') { sfx.vault(); this.puff(p.x + p.facing * 0.4, p.y - 0.9, 3); }
       else if (e === 'spring') {
         sfx.spring();
+        this.squash = -1;
         for (const key of this.springKeysNear(p)) this.state.springSquash[key] = 1;
       }
-      else if (e === 'land') this.puff(p.x, p.y, 3);
+      else if (e === 'land') {
+        this.puff(p.x, p.y, 3);
+        // A big fall while running turns into a parkour roll
+        if (p.landVy > 16 && Math.abs(p.vx) > 3) { this.roll = 0.36; sfx.roll(); this.puff(p.x, p.y, 4); }
+        else this.squash = Math.min(1, p.landVy / 18);
+      }
       else if (e === 'fell') { this.ouch(); return; }
       else if (e === 'hazard') { if (this.invincible <= 0) { this.ouch(); return; } }
       else if (e === 'gem') { this.collectGem(); return; }
@@ -197,44 +242,88 @@ export class Game {
     }
   }
   updateParticles() {
+    let n = 0;
     for (const q of this.particles) {
       q.life -= DT;
       q.x += q.vx * DT; q.y += q.vy * DT;
       if (q.gravity) q.vy += 9 * DT;
+      if (q.life > 0) this.particles[n++] = q;
     }
-    this.particles = this.particles.filter(q => q.life > 0);
+    this.particles.length = n;
   }
 
-  draw() {
+  // Which way the dragon is posed right now, for drawing.
+  pose() {
+    const p = this.player;
+    const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    const speed = Math.abs(p.vx) / P.RUN;
+    const o = {
+      t: this.time, walk: this.walk, vy: p.vy, speed, squash: this.squash,
+      moving: Math.abs(p.vx) > 0.5, airborne: !p.onGround, facing: p.facing,
+    };
+    if (p.climb) { o.pose = 'climb'; o.poseT = Math.min(1, p.climb.t / P.CLIMB_TIME); o.facing = p.climb.dir; }
+    else if (this.roll > 0) { o.pose = 'roll'; o.poseT = 1 - this.roll / 0.36; }
+    else if (p.vault > 0 && !p.onGround) { o.pose = 'vault'; o.poseT = Math.min(1, 1 - p.vault / 0.3); }
+    else if (p.wall && dir === p.wall && p.vy > -4) { o.pose = 'wall'; o.facing = p.wall; }
+    else if (!p.onGround) o.pose = p.vy < 0 ? 'jump' : 'fall';
+    else if (inTunnel(this.level, p)) o.pose = 'slide';
+    else o.pose = o.moving ? 'run' : 'idle';
+    return o;
+  }
+
+  // How far below the dragon the ground is (for its shadow), or -1 if there's none close.
+  groundBelow(x, y) {
+    for (let ty = Math.floor(y); ty < Math.min(this.level.H, y + 6); ty++) {
+      if (isSolid(this.level, Math.floor(x), ty)) return ty;
+    }
+    return -1;
+  }
+
+  draw(alpha = 1) {
     const { ctx, s, w, h } = this;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const pv = this.prev || { x: this.player.x, y: this.player.y, camX: this.camX, camY: this.camY };
+    const lerp = (a, b) => a + (b - a) * alpha;
+    // Line the camera up with real screen pixels so the tiles don't shimmer
+    const px = Math.round(lerp(pv.camX, this.camX) * s * this.dpr) / (s * this.dpr);
+    const py = Math.round(lerp(pv.camY, this.camY) * s * this.dpr) / (s * this.dpr);
     let shakeX = 0, shakeY = 0;
     if (this.shake > 0) {
       this.shake -= 1 / 60;
-      shakeX = (Math.random() - 0.5) * 10; shakeY = (Math.random() - 0.5) * 10;
+      shakeX = Math.round((Math.random() - 0.5) * 10); shakeY = Math.round((Math.random() - 0.5) * 10);
     }
-    drawBackground(ctx, this.level.theme, w, h, this.camX * s, this.time);
+    drawBackground(ctx, this.level.theme, w, h, px * s, this.time);
     ctx.save();
     ctx.translate(shakeX, shakeY);
     const vw = w / s, vh = h / s;
-    drawTiles(ctx, this.level, this.camX, this.camY, s, vw, vh, this.time, this.state);
-    drawHints(ctx, this.level, this.camX, this.camY, s);
+    drawTiles(ctx, this.level, px, py, s, vw, vh, this.time, this.state);
+    drawHints(ctx, this.level, px, py, s);
 
     // Dragon
     const p = this.player;
+    const dx = lerp(pv.x, p.x), dy = lerp(pv.y, p.y);
     const blinkOut = this.invincible > 0 && Math.floor(this.invincible * 10) % 2 === 0;
     const hidden = this.freeze > 0 && !this.finished;
+    if (!hidden) {
+      const gy = this.groundBelow(dx, dy);
+      if (gy >= 0) {
+        const k = Math.max(0, 1 - (gy - dy) / 5);
+        ctx.fillStyle = `rgba(0,0,0,${0.22 * k})`;
+        ctx.beginPath();
+        ctx.ellipse((dx - px) * s, (gy - py) * s, s * 0.42 * (0.5 + k * 0.5), s * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     if (!blinkOut && !hidden) {
-      drawDragon(ctx, this.dragon, (p.x - this.camX) * s, (p.y - this.camY) * s, s * 0.95, p.facing, {
-        t: this.time, walk: this.walk, moving: Math.abs(p.vx) > 0.5, airborne: !p.onGround,
-      });
+      const o = this.pose();
+      drawDragon(ctx, this.dragon, (dx - px) * s, (dy - py) * s, s * 0.95, o.facing, o);
     }
 
     for (const q of this.particles) {
       ctx.globalAlpha = Math.max(0, q.life / q.max);
       ctx.fillStyle = q.color;
       ctx.beginPath();
-      ctx.arc((q.x - this.camX) * s, (q.y - this.camY) * s, q.size * s, 0, Math.PI * 2);
+      ctx.arc((q.x - px) * s, (q.y - py) * s, q.size * s, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;

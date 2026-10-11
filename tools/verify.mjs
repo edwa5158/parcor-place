@@ -8,7 +8,11 @@
 import { getLevel, TOTAL_LEVELS } from '../js/levels.js';
 import { P, createPlayer, step } from '../js/physics.js';
 
-const WEAK = { ...P, JUMP_V: P.JUMP_V * 0.94, RUN: P.RUN * 0.92, SPRING_V: P.SPRING_V * 0.95 };
+const WEAK = {
+  ...P, JUMP_V: P.JUMP_V * 0.94, RUN: P.RUN * 0.92, SPRING_V: P.SPRING_V * 0.95,
+  WALL_JUMP_V: P.WALL_JUMP_V * 0.94, WALL_CLIMB_V: P.WALL_CLIMB_V * 0.94, VAULT_V: P.VAULT_V * 0.95,
+  LEDGE_REACH: P.LEDGE_REACH - 0.15,
+};
 const STEPS_PER_ACTION = 12; // 0.1 seconds
 const ACTIONS = [
   { right: true, left: false, jump: false },
@@ -23,6 +27,8 @@ function key(p) {
   return [
     Math.round(p.x * 5), Math.round(p.y * 5), Math.round(p.vy), Math.round(p.vx),
     p.onGround ? 1 : 0, p.jumpWasHeld ? 1 : 0, p.canCut ? 1 : 0,
+    p.wallCoyote > 0 ? p.wallSide : 0, Math.ceil(p.lock * 20), p.vault > 0 ? 1 : 0,
+    p.climb ? Math.round(p.climb.t * 50) : -1,
   ].join(',');
 }
 
@@ -47,7 +53,7 @@ export function solve(level, phys = WEAK, maxNodes = 400000) {
   let cur;
   while ((cur = pop()) && seen.size < maxNodes) {
     for (const a of ACTIONS) {
-      const p = { ...cur };
+      const p = { ...cur, climb: cur.climb && { ...cur.climb } };
       let dead = false, won = false;
       for (let i = 0; i < STEPS_PER_ACTION && !dead && !won; i++) {
         for (const e of step(p, a, level, phys)) {

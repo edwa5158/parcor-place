@@ -32,6 +32,10 @@ function tone(freq, endFreq, dur, type = 'square', vol = 0.12, delay = 0) {
 
 export const sfx = {
   jump() { tone(320, 640, 0.15, 'square', 0.08); },
+  walljump() { tone(260, 720, 0.14, 'square', 0.08); },
+  grab() { tone(220, 440, 0.1, 'triangle', 0.14); },
+  vault() { tone(420, 760, 0.1, 'triangle', 0.1); },
+  roll() { tone(160, 90, 0.18, 'sine', 0.14); },
   spring() { tone(200, 900, 0.35, 'sine', 0.2); },
   hurt() { tone(300, 80, 0.4, 'sawtooth', 0.12); },
   checkpoint() { tone(660, 0, 0.12, 'triangle', 0.15); tone(990, 0, 0.2, 'triangle', 0.15, 0.1); },

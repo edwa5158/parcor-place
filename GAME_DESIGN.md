@@ -13,6 +13,17 @@ When all 100 gems are collected, the spell breaks and **the dragon can fly again
 - Each level has **one magic gem**. Grab it to finish the level.
 - **No bad guys.** Only obstacles: gaps, lava, spikes, and tricky jumps.
 
+## Parkour moves
+All with the same three buttons:
+- **Vault:** run fast into a crate and the dragon hops right over it.
+- **Ledge grab:** jump at a wall that's a little too tall and the dragon grabs the edge and climbs up.
+- **Wall slide:** hold toward a wall while falling to slide down it slowly.
+- **Wall jump:** press JUMP on a wall to kick off it. Hold toward the wall and keep tapping JUMP to climb up a really tall wall.
+- **Slide:** run into a low tunnel and the dragon slides through on its belly.
+- **Roll:** land from a big drop while running and the dragon does a parkour roll.
+
+The first world teaches one new move every couple of levels, with a hint the first time.
+
 ## Hearts
 - The dragon has **3 hearts**.
 - Touching lava or spikes, or falling off, costs 1 heart and the dragon goes back to a safe spot.

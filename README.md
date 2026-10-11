@@ -25,11 +25,11 @@ Add `?unlock` to the address to open every level (for grown-up testing).
 | File | What it does |
 |---|---|
 | `js/themes.js` | The 10 worlds: colors, backgrounds, and which obstacles appear |
-| `js/levels.js` | Builds all 100 levels from their level number (same level every time) |
-| `js/physics.js` | Running, jumping, springs, and what the dragon touches |
-| `js/dragon.js` | Draws the dragon from its settings (type, colors, horns, wings, eyes) |
+| `js/levels.js` | Builds all 100 levels from their level number (same level every time): gaps, crates, tall walls, tunnels, spikes |
+| `js/physics.js` | Running, jumping, parkour moves (wall jumps, ledge grabs, vaults), springs, and what the dragon touches |
+| `js/dragon.js` | Draws the dragon from its settings (type, colors, horns, wings, eyes) in each pose (run, jump, wall slide, climb, vault, slide, roll) |
 | `js/render.js` | Draws the backgrounds, ground, spikes, lava, flags, and gems |
-| `js/game.js` | Plays a level (hearts, checkpoints, camera) and the flying ending |
+| `js/game.js` | Plays a level (hearts, checkpoints, camera, smooth drawing between physics steps) and the flying ending |
 | `js/main.js` | The screens: title, dragon maker, story, level map, pause/win |
 | `js/input.js` | Multi-touch buttons and keyboard |
 

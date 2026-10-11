@@ -44,8 +44,8 @@ function fitCanvas(c) {
 function drawPreview(c, cfg, t, opts = {}) {
   const { ctx, w, h } = fitCanvas(c);
   if (!w || !h) return;
-  const scale = Math.min(h / 1.6, w / 2.4);
-  drawDragon(ctx, cfg, w * 0.53, h * 0.9, scale, 1, { t, ...opts });
+  const scale = Math.min(h / 1.6, w / 2.7);
+  drawDragon(ctx, cfg, w * 0.56, h * 0.9, scale, 1, { t, ...opts });
 }
 
 function previewLoop(now) {

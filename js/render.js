@@ -1,4 +1,4 @@
-// Drawing the worlds: backgrounds, ground, spikes, lava, springs, flags and gems.
+// Drawing the worlds: backgrounds, ground, crates, spikes, lava, springs, flags and gems.
 
 import { shade } from './dragon.js';
 
@@ -206,16 +206,20 @@ const BACKGROUNDS = {
   },
 };
 
+let skyCache = { theme: null, h: 0, ctx: null, g: null };
 export function drawBackground(ctx, theme, w, h, camXpx, t) {
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, theme.sky[0]);
-  g.addColorStop(1, theme.sky[1]);
-  ctx.fillStyle = g;
+  if (skyCache.theme !== theme || skyCache.h !== h || skyCache.ctx !== ctx) {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, theme.sky[0]);
+    g.addColorStop(1, theme.sky[1]);
+    skyCache = { theme, h, ctx, g };
+  }
+  ctx.fillStyle = skyCache.g;
   ctx.fillRect(0, 0, w, h);
   BACKGROUNDS[theme.bg](ctx, w, h, camXpx, t, theme);
 }
 
-function groundTile(ctx, theme, px, py, s, tx, ty, topOpen) {
+function groundTile(ctx, theme, px, py, s, tx, ty, topOpen, bottomOpen) {
   ctx.fillStyle = theme.ground;
   ctx.fillRect(px, py, s + 1, s + 1);
   ctx.strokeStyle = theme.groundLine;
@@ -249,6 +253,13 @@ function groundTile(ctx, theme, px, py, s, tx, ty, topOpen) {
     ctx.arc(px + s * (0.2 + n * 0.5), py + s * (0.3 + hash(n) * 0.4), s * 0.07, 0, Math.PI * 2);
     ctx.arc(px + s * (0.7 - n * 0.3), py + s * (0.75 - n * 0.2), s * 0.05, 0, Math.PI * 2);
     ctx.fill();
+  }
+  if (bottomOpen) {
+    // The underside of a ceiling: a shadowy edge so it reads as a roof
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.fillRect(px, py + s * 0.8, s + 1, s * 0.2);
+    ctx.fillStyle = theme.groundLine;
+    ctx.fillRect(px, py + s * 0.92, s + 1, s * 0.08);
   }
   if (topOpen) {
     ctx.fillStyle = theme.groundTop;
@@ -290,6 +301,81 @@ function platformTile(ctx, theme, px, py, s, t, tx) {
   ctx.strokeStyle = shade(theme.platform, -0.35);
   ctx.lineWidth = Math.max(1, s * 0.04);
   ctx.beginPath(); ctx.moveTo(px, py + s * 0.6); ctx.lineTo(px + s, py + s * 0.6); ctx.stroke();
+}
+
+// Crates and blocks you can vault over. They look different in each world.
+function crateTile(ctx, theme, px, py, s) {
+  const lw = Math.max(1, s * 0.05);
+  const inset = s * 0.04;
+  const x = px + inset, y = py + inset, w = s - inset * 2, h = s - inset;
+  ctx.lineWidth = lw;
+  const tex = theme.texture;
+  if (tex === 'ice') {
+    ctx.fillStyle = 'rgba(200,240,255,0.85)';
+    ctx.strokeStyle = '#6fb6d6';
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, s * 0.12); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath(); ctx.moveTo(x + w * 0.15, y + h * 0.75); ctx.lineTo(x + w * 0.15, y + h * 0.2); ctx.lineTo(x + w * 0.4, y + h * 0.15);
+    ctx.lineTo(x + w * 0.25, y + h * 0.3); ctx.closePath(); ctx.fill();
+    return;
+  }
+  if (tex === 'stone' || tex === 'rock' || tex === 'sand') {
+    const base = tex === 'sand' ? '#d9b26f' : shade(theme.platform, 0.1);
+    ctx.fillStyle = base;
+    ctx.strokeStyle = shade(base, -0.45);
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, s * 0.08); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = shade(base, 0.25);
+    ctx.fillRect(x + lw, y + lw, w - lw * 2, h * 0.16);
+    ctx.strokeStyle = shade(base, -0.3);
+    ctx.beginPath();
+    ctx.moveTo(x, y + h * 0.5); ctx.lineTo(x + w, y + h * 0.5);
+    ctx.moveTo(x + w * 0.5, y + h * 0.16); ctx.lineTo(x + w * 0.5, y + h * 0.5);
+    ctx.moveTo(x + w * 0.25, y + h * 0.5); ctx.lineTo(x + w * 0.25, y + h);
+    ctx.moveTo(x + w * 0.75, y + h * 0.5); ctx.lineTo(x + w * 0.75, y + h);
+    ctx.stroke();
+    if (theme.liquid && tex === 'rock') {
+      ctx.strokeStyle = theme.liquidTop;
+      ctx.beginPath(); ctx.moveTo(x + w * 0.3, y + h * 0.65); ctx.lineTo(x + w * 0.42, y + h * 0.8); ctx.lineTo(x + w * 0.38, y + h * 0.95); ctx.stroke();
+    }
+    return;
+  }
+  if (tex === 'metal') {
+    ctx.fillStyle = '#90a4ae';
+    ctx.strokeStyle = '#455a64';
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, s * 0.06); ctx.fill(); ctx.stroke();
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x + w * 0.1, y + h * 0.62, w * 0.8, h * 0.24); ctx.clip();
+    ctx.fillStyle = '#ffb300'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#263238';
+    for (let k = -1; k < 5; k++) {
+      ctx.beginPath();
+      ctx.moveTo(x + w * (k * 0.25), y + h); ctx.lineTo(x + w * (k * 0.25 + 0.12), y + h);
+      ctx.lineTo(x + w * (k * 0.25 + 0.32), y + h * 0.5); ctx.lineTo(x + w * (k * 0.25 + 0.2), y + h * 0.5);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.fillStyle = '#455a64';
+    for (const [a, b] of [[0.14, 0.14], [0.86, 0.14], [0.14, 0.48], [0.86, 0.48]]) {
+      ctx.beginPath(); ctx.arc(x + w * a, y + h * b, s * 0.04, 0, Math.PI * 2); ctx.fill();
+    }
+    return;
+  }
+  // Wooden crate (rooftops, trees, clouds)
+  const wood = tex === 'cloud' ? '#e8c48f' : '#c8894a';
+  ctx.fillStyle = wood;
+  ctx.strokeStyle = shade(wood, -0.5);
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, s * 0.06); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = shade(wood, -0.25);
+  ctx.beginPath();
+  for (const k of [0.33, 0.66]) { ctx.moveTo(x, y + h * k); ctx.lineTo(x + w, y + h * k); }
+  ctx.stroke();
+  const b = s * 0.13;
+  ctx.fillStyle = shade(wood, -0.15);
+  ctx.strokeStyle = shade(wood, -0.5);
+  ctx.beginPath();
+  ctx.rect(x, y, w, b); ctx.rect(x, y + h - b, w, b);
+  ctx.moveTo(x + b * 0.4, y + h - b); ctx.lineTo(x + w - b * 1.4, y + b); ctx.lineTo(x + w - b * 0.4, y + b); ctx.lineTo(x + b * 1.4, y + h - b); ctx.closePath();
+  ctx.fill(); ctx.stroke();
 }
 
 function spikeTile(ctx, theme, px, py, s) {
@@ -391,6 +477,7 @@ export function drawGem(ctx, cx, cy, s, t) {
 }
 
 // Draws all visible tiles. `state` has which checkpoints are active and spring squish.
+// camX and camY should already be lined up with the screen's pixels.
 export function drawTiles(ctx, level, camX, camY, s, vw, vh, t, state) {
   const x0 = Math.max(0, Math.floor(camX) - 1), x1 = Math.min(level.W - 1, Math.ceil(camX + vw) + 1);
   const y0 = Math.max(0, Math.floor(camY) - 1), y1 = Math.min(level.H - 1, Math.ceil(camY + vh) + 1);
@@ -399,11 +486,13 @@ export function drawTiles(ctx, level, camX, camY, s, vw, vh, t, state) {
   for (let ty = y0; ty <= y1; ty++) {
     const row = level.grid[ty];
     const above = ty > 0 ? level.grid[ty - 1] : null;
+    const below = ty < level.H - 1 ? level.grid[ty + 1] : null;
     for (let tx = x0; tx <= x1; tx++) {
       const c = row[tx];
       if (c === '.') continue;
-      const px = Math.floor((tx - camX) * s), py = Math.floor((ty - camY) * s);
-      if (c === '#') groundTile(ctx, theme, px, py, s, tx, ty, !above || (above[tx] !== '#'));
+      const px = tx * s - camX * s, py = ty * s - camY * s;
+      if (c === '#') groundTile(ctx, theme, px, py, s, tx, ty, !above || (above[tx] !== '#'), !!below && below[tx] === '.');
+      else if (c === 'X') crateTile(ctx, theme, px, py, s);
       else if (c === '=') platformTile(ctx, theme, px, py, s, t, tx);
       else if (c === '^') spikeTile(ctx, theme, px, py, s);
       else if (c === '~') liquidTile(ctx, theme, px, py, s, t, tx);

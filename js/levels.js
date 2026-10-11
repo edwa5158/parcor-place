@@ -5,6 +5,7 @@
 //   .  air        #  ground      =  floating platform
 //   ^  spikes     ~  lava/quicksand/goo
 //   B  bouncy spring   C  checkpoint flag   G  magic gem   S  start
+//   X  crate (solid, small enough to vault over)
 //
 // The rules below keep every jump possible: gaps get wider and the obstacles
 // get trickier as the level number goes up. tools/verify.mjs double-checks
@@ -32,8 +33,12 @@ function mulberry32(a) {
 export function segmentWeights(index) {
   const world = WORLDS[Math.floor(index / LEVELS_PER_WORLD)];
   const w = { ...world.segs };
-  if (index < 3) return { gap: w.gap || 1, steps: w.steps || 1 };
+  // The first world teaches one new parkour move every couple of levels.
+  if (index === 0) return { gap: w.gap || 1, steps: w.steps || 1 };
+  if (index < 3) return { gap: w.gap || 1, steps: 1, vault: w.vault || 2 };
+  if (index < 5) { delete w.tunnel; delete w.climb; }
   if (index < 6) { delete w.spring; delete w.platforms; }
+  if (index < 7) delete w.climb;
   if (index < 8) delete w.spring;
   return w;
 }
@@ -44,6 +49,10 @@ function firstLevelWith(seg) {
 }
 
 const HINTS = {
+  vault: 'Run fast into boxes to vault over them!',
+  ledge: 'Jump at tall walls to grab the edge!',
+  tunnel: 'Run into low tunnels to slide!',
+  climb: 'Hold ➡️ on the wall and tap JUMP to climb!',
   spikes: 'Jump over the spikes!',
   platforms: 'Jump from platform to platform!',
   spring: 'Bounce on the spring! Hold ➡️',
@@ -108,10 +117,10 @@ export function generateLevel(index) {
   };
 
   const introduced = {};
-  const maybeHint = seg => {
+  const maybeHint = (seg, dx = 0) => {
     if (introduced[seg] || !HINTS[seg]) return;
     introduced[seg] = true;
-    if (firstLevelWith(seg) === index) hint(HINTS[seg]);
+    if (firstLevelWith(seg) === index) hint(HINTS[seg], dx);
   };
 
   const SEGMENTS = {
@@ -164,6 +173,51 @@ export function generateLevel(index) {
       h = surf + dh;
       flat(3);
     },
+    vault() {
+      // Crates to vault over. Later on, some have spikes or another crate right after.
+      const n = ri(1, 1 + Math.floor(d * 3));
+      flat(ri(3, 4));
+      maybeHint('vault', -2);
+      for (let i = 0; i < n; i++) {
+        cols.push(ground(h)); putOnTop(cols.length - 1, 'X');
+        if (d > 0.2 && rng() < 0.35) { cols.push(ground(h)); putOnTop(cols.length - 1, '^'); }
+        else if (d > 0.1 && rng() < 0.3) { cols.push(ground(h)); putOnTop(cols.length - 1, 'X'); putOnTop(cols.length - 1, 'X', h + 1); }
+        flat(ri(3, 4));
+      }
+    },
+    ledge() {
+      // A wall a bit too tall to jump: grab the edge and climb up.
+      const rise = index < 10 ? 3 : ri(3, 4);
+      if (h + rise > MAX_H) { SEGMENTS.steps(); return; }
+      flat(ri(3, 4));
+      maybeHint('ledge', -2);
+      if (d > 0.25 && rng() < 0.5) for (let i = 0; i < ri(1, 2); i++) cols.push(pit());
+      h += rise;
+      flat(ri(3, 5));
+    },
+    climb() {
+      // A big wall: kick up it, wall jump after wall jump.
+      const rise = ri(5, 6);
+      if (h + rise > MAX_H) { SEGMENTS.ledge(); return; }
+      flat(ri(3, 4));
+      maybeHint('climb', -2);
+      if (d > 0.3 && rng() < 0.5) for (let i = 0; i < 2; i++) cols.push(pit());
+      h += rise;
+      flat(ri(3, 5));
+    },
+    tunnel() {
+      // A low ceiling to slide under. It's thin enough to climb over the top, too.
+      flat(ri(2, 3));
+      maybeHint('tunnel', -1);
+      const len = ri(3, 5 + Math.floor(d * 3));
+      const thick = ri(2, 3);
+      for (let i = 0; i < len; i++) {
+        const c = ground(h);
+        for (let r = H - h - 1 - thick; r < H - h - 1; r++) c[r] = '#';
+        cols.push(c);
+      }
+      flat(ri(2, 3));
+    },
     spring() {
       if (h > MAX_H - 5) { SEGMENTS.steps(); return; }
       flat(2);
@@ -193,6 +247,8 @@ export function generateLevel(index) {
     hints.push({ x: 2, y: H - h - 3, text: theme.intro });
   }
 
+  // The level that introduces a new obstacle always has one, so its hint shows up.
+  const intro = Object.keys(HINTS).filter(seg => weights[seg] && firstLevelWith(seg) === index);
   let firstSeg = true;
   while (cols.length < targetLen) {
     if (cols.length - lastCheckpoint >= 20) {
@@ -200,7 +256,7 @@ export function generateLevel(index) {
       putOnTop(cols.length - 1, 'C');
       lastCheckpoint = cols.length;
     }
-    const seg = pickSegment();
+    const seg = intro.length ? intro.shift() : pickSegment();
     if (index === 0 && firstSeg) hint('Press JUMP to jump!', -3);
     firstSeg = false;
     SEGMENTS[seg]();
