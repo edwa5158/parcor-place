@@ -1,6 +1,19 @@
 // Draws a dragon from its settings. Used by the dragon maker and the game.
 // Drawing units: 1 = one tile. (0, 0) is between the dragon's feet; it faces right.
 
+// Older iPads (before iPadOS 16) don't have roundRect, so add it.
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+    r = Math.min(Array.isArray(r) ? r[0] : r, w / 2, h / 2);
+    this.moveTo(x + r, y);
+    this.arcTo(x + w, y, x + w, y + h, r);
+    this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r);
+    this.arcTo(x, y, x + w, y, r);
+    this.closePath();
+  };
+}
+
 export const DRAGON_TYPES = [
   { id: 'european', label: 'European' },
   { id: 'eastern', label: 'Eastern' },
