@@ -44,7 +44,7 @@ rng = np.random.default_rng(7)
 CAST = {
     'narrator': dict(label='Narrator', voice='af_heart', lang='en-us', pitch=0, speed=0.92),
     'wizard': dict(label='Wizard Grumbleboots', voice='bm_george', lang='en-gb', pitch=-3, speed=0.9, echo=0.22),
-    'dragon': dict(label='{name}', voice='am_puck', lang='en-us', pitch=4, speed=0.9),
+    'dragon': dict(label='{name}', voice='af_bella', lang='en-us', pitch=6, speed=1.0),  # a little kid
 }
 
 # ---------------------------------------------------------------------------
@@ -637,8 +637,15 @@ SFX = {
 # ---------------------------------------------------------------------------
 # Voices
 
+# Words the voices say wrong, and a spelling that makes them say it right.
+# "Parcor" (the game's spelling) and "parkour" both come out as "parker"; "par-coor" is par-KOOR.
+SAY_AS = {'parcor': 'par-coor', 'parkour': 'par-coor'}
+
+
 def spoken(text):
-    """Words in CAPS are shouty in the captions, but the voice would spell them out, so say them normally."""
+    """The words for the voice, which can differ a little from the caption."""
+    text = re.sub(r'\b\w+\b', lambda m: SAY_AS.get(m.group().lower(), m.group()), text)
+    # Words in CAPS are shouty in the captions, but the voice would spell them out, so say them normally.
     return re.sub(r'\b[A-Z]{2,}\b', lambda m: m.group().lower(), text)
 
 

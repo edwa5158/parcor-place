@@ -35,7 +35,7 @@ export const CUTSCENES = {
       "scene": "sky",
       "music": "once",
       "clip": "audio/intro-1.mp3",
-      "dur": 8.43,
+      "dur": 8.9,
       "lines": [
         {
           "who": "narrator",
@@ -45,11 +45,11 @@ export const CUTSCENES = {
         {
           "who": "dragon",
           "text": "Woo-hoo! Zoom! Loop-de-loop!",
-          "t": 6.7
+          "t": 6.82
         }
       ],
       "cues": {
-        "loop": 5.95
+        "loop": 6.07
       }
     },
     {
@@ -133,7 +133,7 @@ export const CUTSCENES = {
       "scene": "ground",
       "music": null,
       "clip": "audio/intro-5.mp3",
-      "dur": 7.69,
+      "dur": 8.15,
       "lines": [
         {
           "who": "dragon",
@@ -143,17 +143,17 @@ export const CUTSCENES = {
         {
           "who": "dragon",
           "text": "Flap, flap, flap...",
-          "t": 2.54
+          "t": 2.93
         },
         {
           "who": "dragon",
           "text": "Oh no.",
-          "t": 6.76
+          "t": 7.19
         }
       ],
       "cues": {
-        "flap": 2.54,
-        "flop": 4.06
+        "flap": 2.93,
+        "flop": 4.49
       }
     },
     {
@@ -190,7 +190,7 @@ export const CUTSCENES = {
       "scene": "worlds",
       "music": "adventure",
       "clip": "audio/intro-7.mp3",
-      "dur": 13.29,
+      "dur": 13.61,
       "lines": [
         {
           "who": "narrator",
@@ -248,7 +248,7 @@ export const CUTSCENES = {
       "scene": "liftoff",
       "music": "triumph",
       "clip": "audio/ending-2.mp3",
-      "dur": 5.7,
+      "dur": 6.11,
       "lines": [
         {
           "who": "dragon",
@@ -258,11 +258,11 @@ export const CUTSCENES = {
         {
           "who": "dragon",
           "text": "I CAN FLY! Yippee!",
-          "t": 4.13
+          "t": 4.32
         }
       ],
       "cues": {
-        "liftoff": 3.68
+        "liftoff": 3.87
       }
     },
     {
@@ -292,7 +292,7 @@ export const CUTSCENES = {
       "scene": "friends",
       "music": "once",
       "clip": "audio/ending-4.mp3",
-      "dur": 10.19,
+      "dur": 10.73,
       "lines": [
         {
           "who": "dragon",
@@ -302,24 +302,24 @@ export const CUTSCENES = {
         {
           "who": "dragon",
           "text": "Want to make some more? Together?",
-          "t": 3.37
+          "t": 3.7
         },
         {
           "who": "wizard",
           "text": "Pancakes? With extra syrup? Oh, yes please!",
-          "t": 5.75,
+          "t": 6.29,
           "mood": "happy"
         }
       ],
       "cues": {
-        "happy": 5.25
+        "happy": 5.79
       }
     },
     {
       "scene": "ride",
       "music": "triumph",
       "clip": "audio/ending-5.mp3",
-      "dur": 10.97,
+      "dur": 10.93,
       "lines": [
         {
           "who": "narrator",
@@ -367,7 +367,7 @@ export const LOST = [
   },
   {
     "clip": "audio/lost-3.mp3",
-    "dur": 2.65,
+    "dur": 2.97,
     "who": "dragon",
     "text": "Ouch, my tail! Okay, one more time!",
     "t": 0.25
@@ -382,14 +382,14 @@ export const LOST = [
   },
   {
     "clip": "audio/lost-5.mp3",
-    "dur": 4.47,
+    "dur": 4.53,
     "who": "narrator",
     "text": "Every great parkour dragon falls down sometimes. You've got this!",
     "t": 0.25
   },
   {
     "clip": "audio/lost-6.mp3",
-    "dur": 2.38,
+    "dur": 2.68,
     "who": "dragon",
     "text": "Whoa, wobbly! Let's try that again!",
     "t": 0.25
