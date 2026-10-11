@@ -6,6 +6,9 @@
 //   wall jump    press JUMP on a wall (hold toward it to kick up the same wall)
 //   ledge grab   jump at a wall that's a bit too tall and you climb up onto it
 //   vault        run fast into a crate and you hop right over it
+//
+// Hills and dunes are slope tiles. The middle of the dragon's feet follows the
+// slope, so it runs smoothly up and over them.
 
 export const P = {
   GRAVITY: 38,
@@ -45,15 +48,72 @@ export function createPlayer(x, y) {
   };
 }
 
+// What each letter in a level means. A level keeps its letters as char codes in
+// level.cells (one Uint8Array), so checking a tile is a single array lookup.
+const code = ch => ch.charCodeAt(0);
+const AIR = code('.'), GROUND = code('#'), SPRING = code('B'), CHECKPOINT = code('C'), GEM = code('G');
+
+// You stand on these and bump into them: ground, platforms, crates, bushes
+export const SOLID = new Uint8Array(128);
+for (const ch of '#=XU') SOLID[code(ch)] = 1;
+
+// Slopes: how high the ground is at the tile's left and right edges (0 = bottom, 1 = top).
+//   /  \   steep hills        a A  gentle dune going up (low half, high half)
+//   Z z    gentle dune going down (high half, low half)
+export const SLOPE = [];
+SLOPE[code('/')] = [0, 1];
+SLOPE[code('\\')] = [1, 0];
+SLOPE[code('a')] = [0, 0.5];
+SLOPE[code('A')] = [0.5, 1];
+SLOPE[code('Z')] = [1, 0.5];
+SLOPE[code('z')] = [0.5, 0];
+
+// Ouchies, and the part of the tile that hurts: [x, y, width, height].
+// Each one takes up a different space, so you have to jump (or not jump) differently.
+export const HURT = [];
+HURT[code('^')] = [0.15, 0.45, 0.7, 0.55]; // spikes: short and wide
+HURT[code('K')] = [0.12, 0.2, 0.76, 0.8];  // crystals: taller, so jump sooner
+HURT[code('Y')] = [0.3, 0.12, 0.4, 0.88];  // cactus: thin and tall, and can be two tiles tall
+HURT[code('V')] = [0.22, 0, 0.56, 0.62];   // icicles and stalactites: hang down, so don't jump into them
+HURT[code('~')] = [0, 0.35, 1, 0.65];      // lava, quicksand, goo
+
+export function makeCells(grid) {
+  const H = grid.length, W = grid[0].length;
+  const cells = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) cells[y * W + x] = grid[y].charCodeAt(x);
+  return cells;
+}
+
+export function cell(level, tx, ty) {
+  if (ty < 0 || ty >= level.H) return AIR;
+  if (tx < 0 || tx >= level.W) return GROUND; // walls at the left and right ends
+  return level.cells[ty * level.W + tx];
+}
+
 export function tileAt(level, tx, ty) {
-  if (ty < 0 || ty >= level.H) return '.';
-  if (tx < 0 || tx >= level.W) return '#'; // walls at the left and right ends
-  return level.grid[ty][tx];
+  return String.fromCharCode(cell(level, tx, ty));
 }
 
 export function isSolid(level, tx, ty) {
-  const t = tileAt(level, tx, ty);
-  return t === '#' || t === '=' || t === 'X';
+  return SOLID[cell(level, tx, ty)] === 1;
+}
+
+// The height of the ground at x if (floor(x), ty) is a slope tile, otherwise -1.
+export function slopeTop(level, x, ty) {
+  const tx = Math.floor(x);
+  const sl = SLOPE[cell(level, tx, ty)];
+  if (!sl) return -1;
+  return ty + 1 - (sl[0] + (sl[1] - sl[0]) * (x - tx));
+}
+
+// Does the solid tile at (tx, ty) stop the dragon moving toward `side`?
+// Not if a slope runs right up to its top and the dragon's feet are nearly there:
+// that's the top of a hill, and the dragon is running up onto it.
+function blocks(level, tx, ty, side, feetY) {
+  if (!isSolid(level, tx, ty)) return false;
+  if (feetY - ty > 0.5) return true;
+  const sl = SLOPE[cell(level, tx - side, ty)];
+  return !sl || sl[side > 0 ? 1 : 0] !== 1;
 }
 
 function overlaps(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -66,7 +126,7 @@ const EPS = 1e-4;
 function wallAt(level, p, dir, phys) {
   const tx = Math.floor(p.x + dir * (phys.W / 2 + 0.06));
   const top = Math.floor(p.y - phys.H + 0.2), bot = Math.floor(p.y - 0.2);
-  for (let ty = top; ty <= bot; ty++) if (isSolid(level, tx, ty)) return true;
+  for (let ty = top; ty <= bot; ty++) if (blocks(level, tx, ty, dir, p.y)) return true;
   return false;
 }
 
@@ -214,7 +274,7 @@ export function step(p, input, level, phys = P) {
     if (side) {
       const tx = Math.floor(p.x + side * hw);
       for (let ty = top; ty <= bot; ty++) {
-        if (!isSolid(level, tx, ty)) continue;
+        if (!blocks(level, tx, ty, side, p.y)) continue;
         // Vault: running fast into something knee-high with room above it
         if (p.onGround && ty === bot && Math.abs(p.vx) >= phys.RUN * phys.VAULT_MIN &&
             !isSolid(level, tx, ty - 1) && !isSolid(level, tx, ty - 2) &&
@@ -235,16 +295,30 @@ export function step(p, input, level, phys = P) {
 
   // Move up/down
   const wasOnGround = p.onGround;
+  const lastY = p.y;
   p.y += p.vy * dt;
   p.onGround = false;
   {
     const left = Math.floor(p.x - hw + EPS);
     const right = Math.floor(p.x + hw - EPS);
-    if (p.vy >= 0) {
-      const ty = Math.floor(p.y);
+    // On a hill or dune, the middle of the feet stays on the slope (and sticks to it going down).
+    // A small hop up a steep hill can't outrun the slope either, so it lands you back on it.
+    const row = Math.floor(p.y);
+    let sy = -1;
+    for (let ty = row - 1; ty <= row + 1 && sy < 0; ty++) sy = slopeTop(level, p.x, ty);
+    if (sy >= 0 && p.y >= sy - (wasOnGround && p.vy >= 0 ? 0.3 : 0) && lastY <= sy + 0.3) {
+      p.y = sy;
+      p.landVy = Math.max(0, p.vy);
+      p.vy = 0;
+      p.onGround = true;
+    } else if (sy >= 0 && p.vy >= 0) {
+      // Above a slope, still falling toward it
+    } else if (p.vy >= 0) {
+      // Coming off the top of a slope onto flat ground, the feet can be a hair below the top.
+      const ty = row, reach = wasOnGround ? 0.3 : EPS * 10;
       for (let tx = left; tx <= right; tx++) {
         if (isSolid(level, tx, ty) && !isSolid(level, tx, ty - 1)) {
-          if (p.y - p.vy * dt <= ty + EPS * 10) {
+          if (lastY <= ty + reach) {
             p.y = ty;
             p.landVy = p.vy;
             p.vy = 0;
@@ -259,24 +333,31 @@ export function step(p, input, level, phys = P) {
         if (isSolid(level, tx, ty)) { p.y = ty + 1 + phys.H; p.vy = 0; break; }
       }
     }
+    // Jumping off a slope can leave the feet a little inside the top of the hill. Pop up onto it.
+    if (!p.onGround) {
+      const cx = Math.floor(p.x), cy = Math.floor(p.y - EPS);
+      if (isSolid(level, cx, cy) && !isSolid(level, cx, cy - 1) && p.y - cy <= 0.5) {
+        p.y = cy;
+        if (p.vy >= 0) { p.landVy = p.vy; p.vy = 0; p.onGround = true; }
+      }
+    }
   }
   if (p.onGround && !wasOnGround) { events.push('land'); p.vault = 0; p.lock = 0; }
   if (p.onGround) p.coyote = phys.COYOTE;
   else p.coyote = Math.max(0, p.coyote - dt);
 
-  // Things you touch: spikes, lava, springs, checkpoints, the gem.
+  // Things you touch: spikes and other ouchies, lava, springs, checkpoints, the gem.
   // The hitbox for ouchies is a little smaller than the dragon, to be kind.
   const bx = p.x - hw + 0.1, by = p.y - phys.H + 0.1, bw = phys.W - 0.2, bh = phys.H - 0.1;
   const tx0 = Math.floor(p.x - hw), tx1 = Math.floor(p.x + hw);
   const ty0 = Math.floor(p.y - phys.H - 0.3), ty1 = Math.floor(p.y); // -0.3: the gem reaches down a little
   for (let ty = ty0; ty <= ty1; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
-      const t = tileAt(level, tx, ty);
-      if (t === '^') {
-        if (overlaps(bx, by, bw, bh, tx + 0.15, ty + 0.45, 0.7, 0.55)) events.push('hazard');
-      } else if (t === '~') {
-        if (overlaps(bx, by, bw, bh, tx, ty + 0.35, 1, 0.65)) events.push('hazard');
-      } else if (t === 'B') {
+      const c = cell(level, tx, ty);
+      const hb = HURT[c];
+      if (hb) {
+        if (overlaps(bx, by, bw, bh, tx + hb[0], ty + hb[1], hb[2], hb[3])) events.push('hazard');
+      } else if (c === SPRING) {
         if (p.vy >= 0 && overlaps(p.x - hw, p.y - phys.H, phys.W, phys.H, tx + 0.1, ty + 0.55, 0.8, 0.45)) {
           p.vy = -phys.SPRING_V;
           p.onGround = false;
@@ -284,9 +365,9 @@ export function step(p, input, level, phys = P) {
           p.canCut = false;
           events.push('spring');
         }
-      } else if (t === 'C') {
+      } else if (c === CHECKPOINT) {
         if (overlaps(p.x - hw, p.y - phys.H, phys.W, phys.H, tx + 0.2, ty - 1, 0.6, 2)) events.push(['checkpoint', tx, ty]);
-      } else if (t === 'G') {
+      } else if (c === GEM) {
         if (overlaps(p.x - hw, p.y - phys.H, phys.W, phys.H, tx, ty - 0.2, 1, 1.4)) events.push('gem');
       }
     }

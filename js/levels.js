@@ -3,15 +3,18 @@
 //
 // A level is a grid of letters:
 //   .  air        #  ground      =  floating platform
-//   ^  spikes     ~  lava/quicksand/goo
+//   X  crate (solid, small enough to vault over)    U  bush (solid, wide and low)
+//   / \  steep hill slopes     a A Z z  gentle dune slopes (see SLOPE in physics.js)
+//   ^  spikes     K  crystals     Y  cactus     V  icicle/stalactite (hangs from a ceiling)
+//   ~  lava/quicksand/goo
 //   B  bouncy spring   C  checkpoint flag   G  magic gem   S  start
-//   X  crate (solid, small enough to vault over)
 //
 // The rules below keep every jump possible: gaps get wider and the obstacles
 // get trickier as the level number goes up. tools/verify.mjs double-checks
 // that a robot dragon can beat every level.
 
 import { WORLDS } from './themes.js';
+import { makeCells } from './physics.js';
 
 export const LEVEL_H = 18;
 export const LEVELS_PER_WORLD = 10;
@@ -36,6 +39,7 @@ export function segmentWeights(index) {
   // The first world teaches one new parkour move every couple of levels.
   if (index === 0) return { gap: w.gap || 1, steps: w.steps || 1 };
   if (index < 3) return { gap: w.gap || 1, steps: 1, vault: w.vault || 2 };
+  if (index < 4) delete w.hill;
   if (index < 5) { delete w.tunnel; delete w.climb; }
   if (index < 6) { delete w.spring; delete w.platforms; }
   if (index < 7) delete w.climb;
@@ -43,11 +47,18 @@ export function segmentWeights(index) {
   return w;
 }
 
-function firstLevelWith(seg) {
-  for (let i = 0; i < TOTAL_LEVELS; i++) if (segmentWeights(i)[seg]) return i;
+// The first level that has an obstacle: in the whole game, or in one world.
+let weightsByLevel = null;
+function firstLevelWith(seg, world = -1) {
+  weightsByLevel ||= Array.from({ length: TOTAL_LEVELS }, (_, i) => segmentWeights(i));
+  const from = world < 0 ? 0 : world * LEVELS_PER_WORLD;
+  const to = world < 0 ? TOTAL_LEVELS : from + LEVELS_PER_WORLD;
+  for (let i = from; i < to; i++) if (weightsByLevel[i][seg]) return i;
   return -1;
 }
 
+// Shown the first time an obstacle appears in the game. Worlds can have their own
+// words for their own obstacles (theme.hints), shown the first time in that world.
 const HINTS = {
   vault: 'Run fast into boxes to vault over them!',
   ledge: 'Jump at tall walls to grab the edge!',
@@ -56,6 +67,10 @@ const HINTS = {
   spikes: 'Jump over the spikes!',
   platforms: 'Jump from platform to platform!',
   spring: 'Bounce on the spring! Hold ➡️',
+  bush: 'Hop over the bushes, or run across the top!',
+  hang: "Don't jump under the pointy things!",
+  cactus: 'Cactuses are tall! Jump high!',
+  crystals: 'Sharp crystals! Jump over them!',
 };
 
 // How far you can jump depends on how much higher you land.
@@ -97,7 +112,11 @@ export function generateLevel(index) {
   };
   const flat = n => { for (let i = 0; i < n; i++) cols.push(ground(h)); };
   const putOnTop = (ci, ch, height = h) => { cols[ci][H - height - 1] = ch; };
-  const hint = (text, dx = 0, height = h) => hints.push({ x: cols.length + dx, y: H - height - 3, text });
+  let lastHint = -99;
+  const hint = (text, dx = 0, height = h) => {
+    lastHint = cols.length + dx;
+    hints.push({ x: lastHint, y: H - height - 3, text });
+  };
 
   // Pick a new height for landing after a gap of `gap` tiles.
   const pickRise = (from, gap, allowUp = true) => {
@@ -116,11 +135,14 @@ export function generateLevel(index) {
     return options.length ? choose(options) : 0;
   };
 
+  const ownHint = seg => theme.hints && theme.hints[seg] && firstLevelWith(seg, worldIndex) === index;
+  const gameHint = seg => HINTS[seg] && firstLevelWith(seg) === index;
   const introduced = {};
   const maybeHint = (seg, dx = 0) => {
-    if (introduced[seg] || !HINTS[seg]) return;
+    if (introduced[seg]) return;
     introduced[seg] = true;
-    if (firstLevelWith(seg) === index) hint(HINTS[seg], dx);
+    if (ownHint(seg)) hint(theme.hints[seg], dx);
+    else if (gameHint(seg)) hint(HINTS[seg], dx);
   };
 
   const SEGMENTS = {
@@ -218,6 +240,88 @@ export function generateLevel(index) {
       }
       flat(ri(2, 3));
     },
+    hill() {
+      // Up one side and down the other. In the Rooftops these are pointy roofs.
+      const up = h + 2 <= MAX_H && d > 0.15 && rng() < 0.5 ? 2 : 1;
+      if (h + up > MAX_H) { SEGMENTS.steps(); return; }
+      flat(ri(2, 3));
+      maybeHint('hill');
+      for (let k = 0; k < up; k++) { cols.push(ground(h)); putOnTop(cols.length - 1, '/'); h++; }
+      flat(theme.roofs ? ri(0, 1) : ri(1, 3));
+      const down = Math.max(1, Math.min(h - MIN_H, up + choose([-1, 0, 0, 1])));
+      for (let k = 0; k < down; k++) { h--; cols.push(ground(h)); putOnTop(cols.length - 1, '\\'); }
+      flat(ri(2, 3));
+    },
+    dune() {
+      // Gentle bumps, one after another: sand dunes, or puffy cloud bumps.
+      flat(ri(1, 2));
+      maybeHint('dune');
+      const n = ri(1, 2 + Math.floor(d * 2));
+      for (let i = 0; i < n && h < MAX_H; i++) {
+        cols.push(ground(h)); putOnTop(cols.length - 1, 'a');
+        cols.push(ground(h)); putOnTop(cols.length - 1, 'A');
+        h++;
+        flat(ri(0, 2));
+        h--;
+        cols.push(ground(h)); putOnTop(cols.length - 1, 'Z');
+        cols.push(ground(h)); putOnTop(cols.length - 1, 'z');
+        // Later on, a cactus waits in the dip between two dunes
+        if (weights.cactus && d > 0.3 && i < n - 1 && rng() < 0.4) {
+          cols.push(ground(h)); putOnTop(cols.length - 1, 'Y');
+          flat(1);
+        } else {
+          flat(ri(0, 1));
+        }
+      }
+      flat(ri(1, 2));
+    },
+    bush() {
+      // Bushes are wide and low: hop over them, or run right across the top.
+      flat(ri(2, 3));
+      maybeHint('bush', -1);
+      const n = ri(1, d > 0.2 ? 2 : 1);
+      for (let i = 0; i < n; i++) {
+        const w = ri(2, 3);
+        for (let k = 0; k < w; k++) { cols.push(ground(h)); putOnTop(cols.length - 1, 'U'); }
+        if (d > 0.35 && rng() < 0.3) { cols.push(ground(h)); putOnTop(cols.length - 1, '^'); }
+        flat(ri(2, 4));
+      }
+    },
+    cactus() {
+      // Cactuses are thin but tall. The big ones need your biggest jump!
+      flat(ri(2, 3));
+      maybeHint('cactus', -1);
+      const n = ri(1, 1 + Math.floor(d * 2.5));
+      for (let i = 0; i < n; i++) {
+        cols.push(ground(h)); putOnTop(cols.length - 1, 'Y');
+        if (d > 0.3 && rng() < 0.5) putOnTop(cols.length - 1, 'Y', h + 1);
+        flat(ri(3, 4));
+      }
+    },
+    crystals() {
+      // Like spikes, but taller: jump a little sooner.
+      flat(ri(2, 3));
+      maybeHint('crystals');
+      const n = ri(1, Math.min(2, spikeMax));
+      for (let i = 0; i < n; i++) { cols.push(ground(h)); putOnTop(cols.length - 1, 'K'); }
+      flat(ri(2, 3));
+    },
+    hang() {
+      // A ceiling with icicles (or stalactites) hanging down. Run under them, don't jump!
+      // There are three empty rows under the icicles, so running and vaulting are safe.
+      flat(ri(2, 3));
+      maybeHint('hang', -1);
+      const len = ri(4, 5 + Math.floor(d * 4));
+      const crate = d > 0.3 && rng() < 0.5 ? ri(1, len - 2) : -1;
+      for (let i = 0; i < len; i++) {
+        const c = ground(h);
+        c[H - h - 6] = '#'; c[H - h - 5] = '#';
+        c[H - h - 4] = 'V';
+        cols.push(c);
+        if (i === crate) putOnTop(cols.length - 1, 'X');
+      }
+      flat(ri(2, 3));
+    },
     spring() {
       if (h > MAX_H - 5) { SEGMENTS.steps(); return; }
       flat(2);
@@ -245,10 +349,11 @@ export function generateLevel(index) {
     hints.push({ x: 2, y: H - h - 3, text: 'Press ➡️ to run!' });
   } else if (lvl === 0) {
     hints.push({ x: 2, y: H - h - 3, text: theme.intro });
+    lastHint = 2;
   }
 
   // The level that introduces a new obstacle always has one, so its hint shows up.
-  const intro = Object.keys(HINTS).filter(seg => weights[seg] && firstLevelWith(seg) === index);
+  const intro = Object.keys(weights).filter(seg => ownHint(seg) || gameHint(seg));
   let firstSeg = true;
   while (cols.length < targetLen) {
     if (cols.length - lastCheckpoint >= 20) {
@@ -256,6 +361,8 @@ export function generateLevel(index) {
       putOnTop(cols.length - 1, 'C');
       lastCheckpoint = cols.length;
     }
+    // Room between hints, so their bubbles don't pile on top of each other
+    if (intro.length) flat(Math.max(0, lastHint + 12 - cols.length));
     const seg = intro.length ? intro.shift() : pickSegment();
     if (index === 0 && firstSeg) hint('Press JUMP to jump!', -3);
     firstSeg = false;
@@ -293,9 +400,11 @@ export function buildLevel(index, grid, hints = []) {
       if (rows[y][x] === 'G') gem = { x: x + 0.5, y: y + 0.5 };
     }
   }
+  const g = rows.map(r => r.join(''));
   return {
     index, theme, W, H,
-    grid: rows.map(r => r.join('')),
+    grid: g,
+    cells: makeCells(g),
     start, gem, hints,
     slippery: !!theme.slippery,
   };

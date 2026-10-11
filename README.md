@@ -24,11 +24,11 @@ Add `?unlock` to the address to open every level (for grown-up testing).
 
 | File | What it does |
 |---|---|
-| `js/themes.js` | The 10 worlds: colors, backgrounds, and which obstacles appear |
-| `js/levels.js` | Builds all 100 levels from their level number (same level every time): gaps, crates, tall walls, tunnels, spikes |
-| `js/physics.js` | Running, jumping, parkour moves (wall jumps, ledge grabs, vaults), springs, and what the dragon touches |
+| `js/themes.js` | The 10 worlds: colors, backgrounds, which obstacles appear, and how each world draws them |
+| `js/levels.js` | Builds all 100 levels from their level number (same level every time): gaps, crates, bushes, hills, dunes, tall walls, tunnels, spikes, cactuses, crystals, icicles |
+| `js/physics.js` | Running, jumping, parkour moves (wall jumps, ledge grabs, vaults), hills and dunes, springs, and what the dragon touches (each kind of ouchy has its own shape) |
 | `js/dragon.js` | Draws the dragon from its settings (type, colors, horns, wings, eyes) in each pose (run, jump, wall slide, climb, vault, slide, roll) |
-| `js/render.js` | Draws the backgrounds, ground, spikes, lava, flags, and gems |
+| `js/render.js` | Draws the backgrounds, ground, hills, obstacles (a different look in each world), lava, flags, and gems |
 | `js/game.js` | Plays a level (hearts, checkpoints, camera, smooth drawing between physics steps) and the flying ending |
 | `js/main.js` | The screens: title, dragon maker, level map, pause/win |
 | `js/cutscene.js` | The story cutscenes: draws each picture (the dragon, Wizard Grumbleboots, pancakes...) and plays the voices, music, and captions |

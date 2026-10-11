@@ -24,6 +24,23 @@ Tap to go to the next picture, or **Skip**. The **📖 Story** button on the tit
 - Each level has **one magic gem**. Grab it to finish the level.
 - **No bad guys.** Only obstacles: gaps, lava, spikes, and tricky jumps.
 
+## Obstacles
+Every world has its own things to jump over and around, so the levels don't all feel the same.
+
+**Things to get over:** boxes (a chimney on the rooftops, a tree stump in the treetops, a present
+in the clouds, a stack of spell books in the wizard's tower...), wide **bushes** and **tumbleweeds**
+you can hop over or run across, pointy **roofs** and **hills**, and gentle **sand dunes** and puffy cloud bumps.
+
+**Ouchies,** and each one takes up a different space:
+- **Spikes:** short and wide. They look different in each world: thorns, spears, lightning bolts,
+  black lava glass, ice spikes, spinning saws, magic spikes.
+- **Crystals:** taller than spikes, so jump a little sooner.
+- **Cactuses:** thin but tall. Big ones are two tiles tall and need your biggest jump.
+- **Icicles, stalactites, hanging crystals, ceiling spikes, dripping goo:** they hang from a ceiling.
+  Run under them and **don't jump!** (A vault over a box is low enough to be safe.)
+
+The first time a world shows something new, a hint says what to do.
+
 ## Parkour moves
 All with the same three buttons:
 - **Vault:** run fast into a crate and the dragon hops right over it.
